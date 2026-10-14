@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="200dp" android:height="147dp" android:viewportWidth="320" android:viewportHeight="235">
+    <path android:fillColor="@color/illustration_circle" android:pathData="M160,12a104,104 0,1 0,0 208a104,104 0,1 0,0 -208" />
+    <path android:fillColor="#00000000" android:strokeColor="@color/illustration_grid" android:strokeWidth="1" android:pathData="M160,0v235M36,118h248M160,27a90,90 0,1 0,0 180a90,90 0,1 0,0 -180" />
+    <path android:fillColor="@color/illustration_shadow" android:pathData="M94,72l105,-24l34,25v112l-105,25l-34,-25z" />
+    <path android:fillColor="@color/illustration_top" android:pathData="M94,72l105,-24l34,25l-105,25z" />
+    <path android:fillColor="@color/illustration_side" android:pathData="M94,72l34,26v112l-34,-25z" />
+    <path android:fillColor="@color/brand_mint" android:pathData="M128,98l105,-25v112l-105,25z" />
+    <path android:fillColor="@color/illustration_inset" android:pathData="M141,115l78,-19v26l-78,19zM141,151l78,-19v26l-78,19z" />
+    <path android:fillColor="@color/brand_mint" android:pathData="M150,122l42,-10v4l-42,10zM150,158l42,-10v4l-42,10z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M205,109a3,3 0,1 0,0 6a3,3 0,1 0,0 -6M205,145a3,3 0,1 0,0 6a3,3 0,1 0,0 -6" />
+    <path android:fillColor="@color/brand_mint" android:pathData="M65,42h28v28h-28z" />
+    <path android:fillColor="@color/illustration_shadow" android:pathData="M72,55l5,5l9,-11l3,3l-12,14l-8,-8z" />
+    <path android:fillColor="@color/illustration_detail" android:pathData="M248,148h24v24h-24z" />
+    <path android:fillColor="@color/illustration_shadow" android:pathData="M254,154h12v3h-12zM254,160h12v3h-12z" />
+    <path android:fillColor="@color/brand_mint" android:pathData="M256,49h2v12h-2zM251,54h12v2h-12zM58,166h2v10h-2zM54,170h10v2h-10z" />
+</vector>

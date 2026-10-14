@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/background" android:padding="20dp">
+    <Button android:id="@+id/sms_back" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/rhino_back" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:layout_marginTop="12dp">
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/module_sms_title" android:textSize="30sp" android:textColor="@color/text_primary" />
+        <Button android:id="@+id/sms_refresh" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/rhino_refresh" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+        <EditText android:id="@+id/sms_query" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:hint="@string/sms_search_hint" android:maxLength="100" android:singleLine="true" android:inputType="text" android:imeOptions="actionSearch" android:textColor="@color/text_primary" android:textColorHint="@color/text_secondary" android:textSize="14sp" />
+        <Button android:id="@+id/sms_search" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/sms_search" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
+    </LinearLayout>
+    <TextView android:id="@+id/sms_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:layout_marginBottom="16dp" android:text="@string/sms_loading" android:textSize="13sp" android:textColor="@color/text_secondary" android:accessibilityLiveRegion="polite" />
+    <ListView android:id="@+id/sms_list" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:divider="@android:color/transparent" android:dividerHeight="12dp" android:clipToPadding="false" android:paddingBottom="16dp" />
+</LinearLayout>

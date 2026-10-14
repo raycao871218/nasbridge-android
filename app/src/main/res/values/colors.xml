@@ -1,0 +1,33 @@
+<resources>
+    <color name="brand_mint">#75F0D2</color>
+    <color name="brand_blue">#8AB5FF</color>
+    <color name="text_primary">#E6F4FF</color>
+    <color name="text_body">#C8DCEB</color>
+    <color name="text_secondary">#9BB4C7</color>
+    <color name="text_hint">#7899AF</color>
+    <color name="text_preview">#B5CDDF</color>
+    <color name="ink_on_accent">#071D2B</color>
+    <color name="background_top">#123242</color>
+    <color name="background_base">#081723</color>
+    <color name="surface_navigation">#0B1D2A</color>
+    <color name="surface_card">#112B3D</color>
+    <color name="surface_raised">#19384E</color>
+    <color name="border_subtle">#254458</color>
+    <color name="surface_selected">#183D52</color>
+    <color name="badge_border">#2B6872</color>
+    <color name="ripple_accent">#3373A4FF</color>
+    <color name="ripple_light">#2675F0D2</color>
+    <color name="ripple_dark">#30071929</color>
+    <color name="player_background">#07121C</color>
+    <color name="player_controls">#DC07121C</color>
+    <color name="player_overlay">#C407121C</color>
+    <color name="status_warning">#F3C879</color>
+    <color name="status_error">#FF9FAD</color>
+    <color name="illustration_circle">#173B4D</color>
+    <color name="illustration_grid">#2B536A</color>
+    <color name="illustration_shadow">#0A1E2D</color>
+    <color name="illustration_top">#8CCFDF</color>
+    <color name="illustration_side">#508EB8</color>
+    <color name="illustration_inset">#205575</color>
+    <color name="illustration_detail">#ADCDE3</color>
+</resources>

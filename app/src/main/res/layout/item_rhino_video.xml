@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:padding="12dp" android:minHeight="104dp" android:background="@drawable/card" android:descendantFocusability="blocksDescendants">
+    <FrameLayout android:layout_width="120dp" android:layout_height="68dp" android:background="@color/surface_raised">
+        <ImageView android:id="@+id/rhino_thumb" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:contentDescription="@string/rhino_thumbnail" />
+        <ImageView android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="bottom|end" android:layout_margin="4dp" android:src="@drawable/ic_video" android:background="@color/player_overlay" android:importantForAccessibility="no" />
+    </FrameLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="12dp" android:orientation="vertical">
+        <TextView android:id="@+id/rhino_video_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_primary" android:textSize="15sp" android:maxLines="3" android:ellipsize="end" android:lineSpacingExtra="3dp" />
+        <TextView android:id="@+id/rhino_video_meta" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="@color/text_secondary" android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>
