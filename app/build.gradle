@@ -10,9 +10,9 @@ android {
         applicationId 'com.nas.dashboard'
         minSdk 23
         targetSdk 34
-        versionCode 21
-        versionName '0.13.1'
-        testInstrumentationRunner (project.hasProperty('smsTests') ? 'com.nas.dashboard.SmsInstrumentation' : project.hasProperty('videoTests') ? 'com.nas.dashboard.VideoInstrumentation' : 'com.nas.dashboard.RouterInstrumentation')
+        versionCode 27
+        versionName '0.15.0'
+        testInstrumentationRunner (project.hasProperty('presenceTests') ? 'com.nas.dashboard.PresenceInstrumentation' : project.hasProperty('smsTests') ? 'com.nas.dashboard.SmsInstrumentation' : project.hasProperty('videoTests') ? 'com.nas.dashboard.VideoInstrumentation' : 'com.nas.dashboard.RouterInstrumentation')
     }
 
     compileOptions {

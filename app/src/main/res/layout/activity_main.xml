@@ -111,6 +111,10 @@
                     android:paddingHorizontal="20dp" android:textColor="@color/text_body" android:textSize="17sp" android:stateListAnimator="@null" />
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
                     android:text="@string/network_settings_description" android:textColor="@color/text_secondary" android:textSize="13sp" android:lineSpacingExtra="5dp" />
+                <Button android:id="@+id/presence_settings_button" android:layout_width="match_parent" android:layout_height="72dp"
+                    android:layout_marginTop="24dp" android:background="@drawable/card" android:text="@string/presence_title"
+                    android:gravity="center_vertical|start" android:paddingHorizontal="20dp" android:textColor="@color/text_body"
+                    android:textSize="17sp" android:stateListAnimator="@null" />
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
