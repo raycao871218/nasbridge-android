@@ -21,6 +21,8 @@ public class MainActivity extends Activity {
         findViewById(R.id.tab_settings).setOnClickListener(v -> selectTab(3));
         findViewById(R.id.network_settings_button).setOnClickListener(v ->
             startActivity(new Intent(this, NetworkSettingsActivity.class)));
+        findViewById(R.id.presence_settings_button).setOnClickListener(v ->
+            startActivity(new Intent(this, PresenceSettingsActivity.class)));
         bindModule(R.id.module_mihomo, "mihomo");
         findViewById(R.id.module_articles).setOnClickListener(v -> startActivity(new Intent(this, ArticlesActivity.class)));
         findViewById(R.id.module_sms).setOnClickListener(v -> startActivity(new Intent(this, SmsActivity.class)));
