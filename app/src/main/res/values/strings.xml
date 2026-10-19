@@ -63,7 +63,7 @@ ping 失败 / 其他 Wi-Fi / 无 Wi-Fi → 使用 Host2
     <string name="native_welcome">我的 NAS 概览</string>
     <string name="native_description">服务状态、应用连接与证书，实时同步。</string>
     <string name="tab_services">服务</string>
-    <string name="tab_notifications">通知</string>
+    <string name="tab_notifications">信息</string>
     <string name="tab_settings">配置</string>
     <string name="network_settings_entry">网络配置　›</string>
     <string name="network_settings_description">配置 Wi-Fi、Host 和端口后即可使用。按需手动诊断，网络变化时自动切换地址。</string>

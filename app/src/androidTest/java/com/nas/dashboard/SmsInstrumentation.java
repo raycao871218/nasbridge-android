@@ -17,9 +17,8 @@ public final class SmsInstrumentation extends Instrumentation {
   try{
    runOnMainSync(()->{new HostSettings(c).save(new HostConfig("sms-test",base,base));((DashboardApplication)c.getApplicationContext()).monitor().configurationChanged();});
    activity=startActivitySync(new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));Activity main=activity;
-   ActivityMonitor next=addMonitor(SmsActivity.class.getName(),null,false);
-   runOnMainSync(()->{main.findViewById(R.id.tab_services).performClick();main.findViewById(R.id.module_sms).performClick();});
-   Activity sms=waitForMonitorWithTimeout(next,5000);if(sms==null)throw new AssertionError("SMS entry did not open");activity=sms;
+   runOnMainSync(()->main.findViewById(R.id.tab_notifications).performClick());
+   Activity sms=main;
    waitStatus(sms,"已加载 40 条");
    AtomicReference<Throwable> copyFailure=new AtomicReference<>();
    runOnMainSync(()->{
@@ -32,6 +31,9 @@ public final class SmsInstrumentation extends Instrumentation {
      android.view.View card=list.getAdapter().getView(0,null,list);Button copy=card.findViewById(R.id.sms_copy_code);
      if(copy.getVisibility()!=android.view.View.VISIBLE)throw new AssertionError("Copy button hidden for OTP");
      copy.performClick();
+     if(!new SmsReadStore(c).isRead(row))throw new AssertionError("Read receipt not persisted after copying");
+     card=list.getAdapter().getView(0,card,list);
+     if(!"已读".contentEquals(((TextView)card.findViewById(R.id.sms_read_state)).getText()))throw new AssertionError("Read label did not update");
      if(!"001234".contentEquals(clipboard.getPrimaryClip().getItemAt(0).getText()))throw new AssertionError("Incorrect clipboard text");
      if(!clipboard.getPrimaryClipDescription().getExtras().getBoolean("android.content.extra.IS_SENSITIVE"))throw new AssertionError("Clipboard not marked sensitive");
      row.put("verification_code","");card=list.getAdapter().getView(0,card,list);
@@ -48,7 +50,7 @@ public final class SmsInstrumentation extends Instrumentation {
    waitStatus(sms,"暂无匹配短信");
    runOnMainSync(()->{((EditText)sms.findViewById(R.id.sms_query)).setText("");sms.findViewById(R.id.sms_search).performClick();});waitStatus(sms,"已加载 40 条");
    runOnMainSync(()->{ListView list=sms.findViewById(R.id.sms_list);((Button)list.getAdapter().getView(40,null,list)).performClick();});waitStatus(sms,"已加载 80 条");
-   result.putString("stream","PASS: OTP copy preserves leading zeros, sensitive clipboard, recycled non-OTP row hides button; service entry, 40 SMS rows, detail dialog, empty search, clear search, load 80 rows; no network diagnostic prerequisite\n");
+   result.putString("stream","PASS: OTP copy preserves leading zeros, sensitive clipboard, recycled non-OTP row hides button; Information tab, persistent read receipt, 40 SMS rows, detail dialog, empty search, clear search, load 80 rows; no network diagnostic prerequisite\n");
   }catch(Throwable e){result.putString("stream","FAIL: "+e+"\n");finish(1,result);return;}
   finally{
    if(activity!=null){Activity a=activity;runOnMainSync(a::finish);}

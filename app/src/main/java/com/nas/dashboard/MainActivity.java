@@ -10,11 +10,14 @@ import android.widget.TextView;
 public class MainActivity extends Activity {
     private int selectedTab;
     private OverviewController overview;
+    private SmsController sms;
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         overview = new OverviewController(this);
+        sms=new SmsController(this,findViewById(R.id.sms_panel),this::updateSmsBadge);
+        sms.restore(savedInstanceState);
         findViewById(R.id.tab_overview).setOnClickListener(v -> selectTab(0));
         findViewById(R.id.tab_services).setOnClickListener(v -> selectTab(1));
         findViewById(R.id.tab_notifications).setOnClickListener(v -> selectTab(2));
@@ -27,7 +30,6 @@ public class MainActivity extends Activity {
             startActivity(new Intent(this, SetupScannerActivity.class)));
         bindModule(R.id.module_mihomo, "mihomo");
         findViewById(R.id.module_articles).setOnClickListener(v -> startActivity(new Intent(this, ArticlesActivity.class)));
-        findViewById(R.id.module_sms).setOnClickListener(v -> startActivity(new Intent(this, SmsActivity.class)));
         bindModule(R.id.module_tasks, "tasks");
         findViewById(R.id.module_rhino).setOnClickListener(v -> startActivity(new Intent(this, RhinoActivity.class)));
         bindModule(R.id.module_certificates, "certificates");
@@ -37,17 +39,29 @@ public class MainActivity extends Activity {
     }
 
 
+    private void updateSmsBadge(){
+        boolean unread=sms!=null&&sms.hasUnread();
+        findViewById(R.id.sms_badge).setVisibility(unread?View.VISIBLE:View.GONE);
+        findViewById(R.id.tab_notifications).setContentDescription(unread?"信息，有未读短信":"信息，无未读短信");
+    }
     private void bindModule(int id, String key) {
         findViewById(id).setOnClickListener(v -> startActivity(new Intent(this, ServiceModuleActivity.class).putExtra("module", key)));
     }
 
     private void selectTab(int tab) {
+        if(selectedTab==2&&tab!=2){
+            View focus=getCurrentFocus();
+            if(focus!=null){((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);focus.clearFocus();}
+        }
+        boolean enteringInfo=selectedTab!=2&&tab==2;
         selectedTab = tab;
+        if(enteringInfo)sms.refresh();
         int[] ids = {R.id.tab_overview, R.id.tab_services, R.id.tab_notifications, R.id.tab_settings};
         int[] titles = {R.string.tab_overview, R.string.tab_services, R.string.tab_notifications, R.string.tab_settings};
         ((TextView) findViewById(R.id.page_title)).setText(titles[tab]);
         findViewById(R.id.overview_panel).setVisibility(tab == 0 ? View.VISIBLE : View.GONE);
         if (tab == 0) overview.show(); else overview.hide();
+        findViewById(R.id.sms_panel).setVisibility(tab == 2 ? View.VISIBLE : View.GONE);
         findViewById(R.id.services_panel).setVisibility(tab == 1 ? View.VISIBLE : View.GONE);
         findViewById(R.id.settings_panel).setVisibility(tab == 3 ? View.VISIBLE : View.GONE);
         for (int i = 0; i < ids.length; i++) {
@@ -62,13 +76,14 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override protected void onStart() { super.onStart(); if (selectedTab == 0) overview.show(); }
+    @Override protected void onStart() { super.onStart(); sms.start(); if (selectedTab == 0) overview.show(); }
     @Override protected void onResume() { super.onResume(); if (selectedTab == 0) overview.refreshReadMarkers(); }
-    @Override protected void onStop() { overview.hide(); super.onStop(); }
-    @Override protected void onDestroy() { overview.close(); super.onDestroy(); }
+    @Override protected void onStop() { overview.hide(); sms.stop(); super.onStop(); }
+    @Override protected void onDestroy() { overview.close(); sms.close(); super.onDestroy(); }
 
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putInt("selected_tab", selectedTab);
+        sms.save(state);
         super.onSaveInstanceState(state);
     }
 }
