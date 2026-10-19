@@ -4,7 +4,7 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
         <TextView android:id="@+id/home_overview_status" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="@string/overview_loading" android:textColor="@color/text_secondary" android:textSize="12sp" />
-        <Button android:id="@+id/home_refresh" android:layout_width="wrap_content" android:layout_height="48dp"
+        <Button android:minHeight="48dp" android:id="@+id/home_refresh" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="@string/module_refresh" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp" android:background="@drawable/card">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Mihomo" android:textColor="@color/text_primary" android:textSize="19sp" />
@@ -12,7 +12,7 @@
                 android:layout_marginTop="12dp" android:text="@string/overview_loading" android:textColor="@color/brand_mint" android:textSize="22sp" />
             <TextView android:id="@+id/home_mihomo_detail" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="8dp" android:textColor="@color/text_secondary" android:textSize="13sp" android:lineSpacingExtra="4dp" />
-            <Button android:id="@+id/home_google_check" android:layout_width="match_parent" android:layout_height="52dp"
+            <Button android:minHeight="52dp" android:id="@+id/home_google_check" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="16dp" android:background="@drawable/button" android:text="@string/google_check" android:textColor="@color/ink_on_accent" android:stateListAnimator="@null" />
             <TextView android:id="@+id/home_google_result" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="10dp" android:text="@string/google_not_checked" android:textColor="@color/text_secondary" android:textSize="12sp" android:lineSpacingExtra="4dp" android:accessibilityLiveRegion="polite" />

@@ -134,6 +134,7 @@ final class DailyTasksView {
     }
     private void button(LinearLayout parent,String label,Runnable action) {
         Button b=new Button(activity);b.setText(label);b.setTextColor(Color.parseColor("#3B3A49"));b.setTextSize(14);b.setAllCaps(false);b.setBackgroundResource(R.drawable.button);b.setMinHeight(dp(48));
+        b.setBackgroundTintList(null);b.setPadding(dp(16),dp(12),dp(16),dp(12));
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(10);parent.addView(b,p);b.setOnClickListener(v->action.run());
     }
     private int dp(int n){return Math.round(n*activity.getResources().getDisplayMetrics().density);}

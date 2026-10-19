@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent"
     android:layout_height="match_parent" android:background="@drawable/background" android:fillViewport="true">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
-        <Button android:id="@+id/overview_back" android:layout_width="wrap_content" android:layout_height="48dp"
+        <Button android:minHeight="48dp" android:id="@+id/overview_back" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="@string/overview_back" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp"
             android:id="@+id/module_title" android:textColor="@color/text_primary" android:textSize="28sp" />
@@ -13,9 +13,9 @@
         <TextView android:id="@+id/overview_metrics" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="14dp" android:padding="18dp" android:background="@drawable/card"
             android:textColor="@color/text_body" android:textSize="15sp" android:lineSpacingExtra="7dp" />
-        <Button android:id="@+id/overview_refresh" android:layout_width="match_parent" android:layout_height="48dp"
+        <Button android:minHeight="48dp" android:id="@+id/overview_refresh" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="@string/module_refresh" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
-        <Button android:id="@+id/module_go_config" android:layout_width="match_parent" android:layout_height="48dp"
+        <Button android:minHeight="48dp" android:id="@+id/module_go_config" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="@string/module_go_config" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
         <LinearLayout android:id="@+id/overview_content" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp"

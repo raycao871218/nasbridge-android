@@ -23,6 +23,16 @@ public final class DailyTasksInstrumentation extends Instrumentation {
         Bundle result=new Bundle();Activity screen=null;
         try{
             check(getTargetContext().getPackageName().endsWith(".preview"),"Requires isolated preview package");
+            // Shared ripple backgrounds must not share mutable child bounds across widths.
+            android.graphics.drawable.Drawable first=getTargetContext().getDrawable(R.drawable.button);
+            android.graphics.drawable.Drawable second=getTargetContext().getDrawable(R.drawable.button);
+            first.setBounds(0,0,240,64);
+            second.setBounds(0,0,480,64);
+            android.graphics.drawable.Drawable firstChild=((android.graphics.drawable.LayerDrawable)first).getDrawable(0);
+            android.graphics.drawable.Drawable secondChild=((android.graphics.drawable.LayerDrawable)second).getDrawable(0);
+            check(firstChild!=secondChild,"Buttons own independent pigment drawables");
+            check(firstChild.getBounds().width()==240,"Wide button cannot change narrow button bounds");
+            check(secondChild.getBounds().width()==480,"Wide button retains its bounds");
             screen=startActivitySync(new Intent(getTargetContext(),ServiceModuleActivity.class).putExtra("module","tasks").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             Activity activity=screen;
             JSONObject data=new JSONObject("{\"runs\":[{\"run_id\":\"latest\",\"run_date\":\"2026-10-19\",\"status\":\"timed_out\",\"error_message\":\"下载超时，请检查网络\",\"progress\":{\"stages\":[{\"id\":\"download\",\"label\":\"下载视频\",\"status\":\"running\",\"percent\":45,\"item\":\"示例视频\"}]}},{\"run_id\":\"history\",\"status\":\"success\",\"run_summary\":\"历史任务结果\"},{\"run_id\":\"hidden\",\"hidden\":true,\"status\":\"failed\"}],\"summaries\":[{\"summary_filename\":\"示例概要.md\",\"video_id\":\"fixture-video\"}]}");

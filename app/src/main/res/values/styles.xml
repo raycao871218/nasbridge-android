@@ -15,5 +15,6 @@
         <item name="android:colorControlActivated">@color/brand_blue</item>
         <item name="android:colorControlHighlight">@color/ripple_accent</item>
         <item name="android:colorButtonNormal">@color/surface_raised</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
     </style>
 </resources>

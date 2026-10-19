@@ -1,6 +1,6 @@
 # 麻雀会 · NASBridge Android
 
-原生 Android 鸟巢客户端（Java/XML），Android 6.0+，当前版本 0.16.2。应用名为「麻雀会」，采用与「咕咕咕」一致的暖纸蜡笔风和麻雀自适应图标，设计说明见 [BRANDING.md](BRANDING.md)。首次安装不包含 NAS Host 或访问凭据；在家同步预填本项目使用者的 HA 地址及实体，可在设置页修改。
+原生 Android 鸟巢客户端（Java/XML），Android 6.0+，当前版本 0.16.3。应用名为「麻雀会」，采用与「咕咕咕」一致的暖纸蜡笔风和麻雀自适应图标，设计说明见 [BRANDING.md](BRANDING.md)。首次安装不包含 NAS Host 或访问凭据；在家同步预填本项目使用者的 HA 地址及实体，可在设置页修改。
 
 ## 功能
 
