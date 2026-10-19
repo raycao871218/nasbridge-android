@@ -147,10 +147,6 @@ public class ServiceModuleActivity extends Activity {
             metrics.setText("Mihomo：" + state(overview.mihomoStatus) + "\n活动连接：" + overview.connections
                 + "（代理 " + overview.proxiedConnections + " / 直连 " + overview.directConnections + "）"
                 + "\n累计上传：" + bytes(overview.uploadBytes) + "\n累计下载：" + bytes(overview.downloadBytes));
-            heading("应用连接 · " + overview.applications);
-            if (overview.applicationItems.isEmpty()) card("暂无应用", "");
-            for (NasBridgeClient.Application app : overview.applicationItems) card(app.name,
-                "模式：" + state(app.mode) + " · 连接：" + app.connections + "\n上传 " + bytes(app.upload) + " / 下载 " + bytes(app.download));
         } else if ("tasks".equals(module)) {
             JSONObject summary = data.optJSONObject("metrics");
             if (summary == null) summary = new JSONObject();

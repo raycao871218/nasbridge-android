@@ -73,12 +73,6 @@ public class NasOverviewActivity extends Activity {
             + "\n累计上传：" + bytes(data.uploadBytes) + "\n累计下载：" + bytes(data.downloadBytes)
             + "\n内存：" + bytes(data.memoryBytes) + "\n更新时间："
             + DateFormat.getTimeInstance(DateFormat.MEDIUM).format(new Date()));
-        heading(getString(R.string.overview_apps) + " · " + data.applications);
-        if (data.applicationItems.isEmpty()) card(getString(R.string.overview_empty), "");
-        for (NasBridgeClient.Application app : data.applicationItems) {
-            card(app.name, "连接：" + app.connections + " · 模式：" + app.mode
-                + "\n上传 " + bytes(app.upload) + " / 下载 " + bytes(app.download));
-        }
         heading(getString(R.string.overview_certs) + " · " + data.certificates);
         if (data.certificateItems.isEmpty()) card(getString(R.string.overview_empty), "");
         for (NasBridgeClient.Certificate cert : data.certificateItems) {
