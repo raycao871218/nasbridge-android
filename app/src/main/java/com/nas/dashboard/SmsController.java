@@ -30,7 +30,8 @@ final class SmsController {
     private Button more;
     private SmsAdapter adapter;
     private boolean visible,loading,hasMore;
-    private int generation;
+    private volatile int generation;
+    private NasBridgeClient bulkClient;
     private String search="";
     private final ConnectionMonitor.Listener listener=state -> {
         HostRouter.Selection route=monitor.routeForRequests();
@@ -46,6 +47,7 @@ final class SmsController {
         list.addFooterView(more,null,false);more.setVisibility(View.GONE);more.setOnClickListener(v->load(false));
         adapter=new SmsAdapter();list.setAdapter(adapter);
         View back=findViewById(R.id.sms_back);if(back!=null)back.setOnClickListener(v->activity.finish());
+        findViewById(R.id.sms_mark_all_read).setOnClickListener(v->markAllRead());
         findViewById(R.id.sms_refresh).setOnClickListener(v->load(true));
         findViewById(R.id.sms_search).setOnClickListener(v->search());
         query.setOnEditorActionListener((v,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH){search();return true;}return false;});
@@ -57,6 +59,34 @@ final class SmsController {
             String code=row.optString("verification_code", "");
             if(!code.isEmpty())dialog.setNeutralButton(R.string.sms_copy_code,(d,w)->copyCode(code));
             dialog.show();
+        });
+    }
+    private void markAllRead(){
+        HostRouter.Selection route=monitor.routeForRequests();
+        if(route==null){status.setText("请先配置 Host 和端口");return;}
+        Button button=findViewById(R.id.sms_mark_all_read);
+        if(!button.isEnabled())return;
+        button.setEnabled(false);status.setText("正在将全部短信标为已读…");
+        int request=generation;
+        Set<String> keys=store.unreadKeys();
+        NasBridgeClient api=new NasBridgeClient();bulkClient=api;
+        worker.execute(()->{
+            try{
+                // Fetch every page without the current search filter. Commit once,
+                // only after a complete successful scan; never partially clear on failure.
+                keys.addAll(SmsReadBatch.collect(offset->{
+                    if(request!=generation)throw new CancellationException();
+                    return api.getJson(route::openConnection,"api/sms?limit=100&offset="+offset);
+                }));
+                activity.runOnUiThread(()->{
+                    if(!visible||request!=generation)return;
+                    store.markAllRead(keys);adapter.notifyDataSetChanged();changed.run();
+                    status.setText("全部短信已标为已读");button.setEnabled(true);bulkClient=null;
+                });
+            }catch(Exception error){activity.runOnUiThread(()->{
+                if(!visible||request!=generation)return;
+                status.setText("全部已读失败，请重试");button.setEnabled(true);bulkClient=null;
+            });}
         });
     }
     private void copyCode(String code){
@@ -108,7 +138,7 @@ final class SmsController {
             v.setTag("sms:"+r.optString("device_id")+":"+r.optString("message_id"));return v;
         }
     }
-    private void cancel(){generation++;loading=false;if(client!=null){client.cancel();client=null;}}
+    private void cancel(){generation++;if(bulkClient!=null){bulkClient.cancel();bulkClient=null;}View all=findViewById(R.id.sms_mark_all_read);if(all!=null)all.setEnabled(true);loading=false;if(client!=null){client.cancel();client=null;}}
     private <T extends View> T findViewById(int id){return root.findViewById(id);}
     void save(Bundle state){state.putString("sms_search",query.getText().toString());}
     void restore(Bundle state){if(state!=null){search=state.getString("sms_search","");query.setText(search);}}

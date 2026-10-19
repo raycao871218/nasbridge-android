@@ -136,4 +136,5 @@ ping 失败 / 其他 Wi-Fi / 无 Wi-Fi → 使用 Host2
     <string name="presence_test_now">立即测试当前状态</string>
     <string name="scan_setup">扫码导入配置</string>
     <string name="scan_setup_hint">扫描 NAS 后台二维码，一次导入网络、HA 和围栏配置。</string>
+    <string name="sms_mark_all_read">全部已读</string>
 </resources>

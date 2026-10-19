@@ -16,6 +16,13 @@ final class SmsReadStore {
         for(JSONObject row:rows)if(!read.contains(key(row)))unread.add(key(row));
         prefs.edit().putStringSet("unread",unread).apply();
     }
+    Set<String> unreadKeys(){return new HashSet<>(prefs.getStringSet("unread",Collections.emptySet()));}
+    void markAllRead(Set<String> keys){
+        Set<String> read=new HashSet<>(prefs.getStringSet("read",Collections.emptySet()));
+        Set<String> unread=unreadKeys();
+        read.addAll(keys);unread.removeAll(keys);
+        prefs.edit().putStringSet("read",read).putStringSet("unread",unread).apply();
+    }
     void markRead(JSONObject row){
         Set<String> read=new HashSet<>(prefs.getStringSet("read",Collections.emptySet()));
         Set<String> unread=new HashSet<>(prefs.getStringSet("unread",Collections.emptySet()));

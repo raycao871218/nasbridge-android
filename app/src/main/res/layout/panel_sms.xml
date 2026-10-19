@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:id="@+id/sms_panel" android:visibility="gone" android:orientation="vertical" android:background="@drawable/background" android:padding="20dp">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:layout_marginTop="12dp">
         <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/module_sms_title" android:textSize="18sp" android:textColor="@color/text_primary" />
+        <Button android:minHeight="48dp" android:id="@+id/sms_mark_all_read" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/sms_mark_all_read" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
         <Button android:minHeight="48dp" android:id="@+id/sms_refresh" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/rhino_refresh" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
