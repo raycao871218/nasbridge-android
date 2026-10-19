@@ -1,10 +1,11 @@
 # 麻雀会 · NASBridge Android
 
-原生 Android 鸟巢客户端（Java/XML），Android 6.0+，当前版本 0.16.1。应用名为「麻雀会」，采用与「咕咕咕」一致的暖纸蜡笔风和麻雀自适应图标，设计说明见 [BRANDING.md](BRANDING.md)。首次安装不包含 NAS Host 或访问凭据；在家同步预填本项目使用者的 HA 地址及实体，可在设置页修改。
+原生 Android 鸟巢客户端（Java/XML），Android 6.0+，当前版本 0.16.2。应用名为「麻雀会」，采用与「咕咕咕」一致的暖纸蜡笔风和麻雀自适应图标，设计说明见 [BRANDING.md](BRANDING.md)。首次安装不包含 NAS Host 或访问凭据；在家同步预填本项目使用者的 HA 地址及实体，可在设置页修改。
 
 ## 功能
 
 - 总览：Mihomo 状态、手动通过 NAS/Mihomo 检测 Google、今日未读文章、证书有效期。
+- 每日任务：最近任务默认展开，查看阶段状态、百分比、心跳、起止时间、耗时、媒体/概要处理结果和失败原因；历史运行可展开并保留展开状态，运行中每 15 秒刷新，离开页面停止刷新。最近概要可进入全文和关联视频，产出不推测归属于某次运行。旧记录无阶段数据时明确提示。
 - 服务：Mihomo、犀牛哥视频、文章、短信、每日任务、证书与反代、阿里云配置状态和 ZeroTier 网络信息。
 - 文章：摘要分页、全文阅读、已读文章回看，用户主动点击时才提交已读状态。
 - 视频：缩略图列表、Range 分段播放、倍速、全屏、左右快进/快退、左右两侧分别调亮度/音量；系统解码器决定可用格式。
@@ -82,3 +83,5 @@ adb -e shell am instrument -w com.nas.dashboard.test/com.nas.dashboard.RouterIns
 XML 调色板位于 `app/src/main/res/values/colors.xml`；动态内容使用同一配色。按 [MIT](LICENSE) 开源，第三方说明见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
 扫码导入的独立模拟器验证：`./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PsetupTests -PuiPreview`，安装两份 APK 后运行 `adb -e shell am instrument -w com.nas.dashboard.preview.test/com.nas.dashboard.SetupInstrumentation`。测试使用虚构配置和后台实际渲染的二维码，验证预览/取消、导入、令牌加密及自动同步保持停止。`uiPreview` 使用独立应用 ID，不覆盖个人配置。JUnit 验证命令：`./gradlew :app:testDebugUnitTest`。
+
+每日任务展示测试：`./gradlew :app:testDebugUnitTest` 验证终止阶段状态及北京时间/耗时；`./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PuiPreview -PtaskTests` 生成隔离预览测试包，运行 `com.nas.dashboard.preview.test/com.nas.dashboard.DailyTasksInstrumentation` 验证任务详情、展开恢复、进度和空状态。使用虚构只读数据。

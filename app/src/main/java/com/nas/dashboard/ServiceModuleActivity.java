@@ -24,6 +24,17 @@ import java.util.concurrent.Future;
 /** Native read-only modules matching the existing NASBridge web navigation. */
 public class ServiceModuleActivity extends Activity {
     private String module;
+    private DailyTasksView dailyTasks;
+    private final android.os.Handler refreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean visible;
+    private boolean refreshingTasks;
+    private final Runnable refreshTasks = () -> {
+        if (visible && "tasks".equals(module)) {
+            refreshingTasks = true;
+            loadedRoute = null;
+            connectionChanged(this.monitor.current());
+        }
+    };
     private ConnectionMonitor monitor;
     private TextView route;
     private TextView status;
@@ -52,6 +63,11 @@ public class ServiceModuleActivity extends Activity {
         status = findViewById(R.id.overview_status);
         metrics = findViewById(R.id.overview_metrics);
         content = findViewById(R.id.overview_content);
+        if ("tasks".equals(module)) {
+            dailyTasks = new DailyTasksView(this, content);
+            dailyTasks.restore(state);
+            route.setVisibility(View.GONE);
+        }
         monitor = ((DashboardApplication) getApplication()).monitor();
         findViewById(R.id.overview_back).setOnClickListener(v -> finish());
         findViewById(R.id.overview_refresh).setOnClickListener(v -> { loadedRoute = null; connectionChanged(monitor.current()); });
@@ -71,14 +87,17 @@ public class ServiceModuleActivity extends Activity {
             return;
         }
         if (selection == loadedRoute) return;
+        refreshHandler.removeCallbacks(refreshTasks);
         cancel();
         loadedRoute = selection;
         int request = generation;
         route.setText(selection.baseUrl + "\n" + selection.reason);
         status.setText("正在读取服务数据…");
         status.setTextColor(Color.parseColor("#52745F"));
-        metrics.setText("正在加载当前栏目…");
-        content.removeAllViews();
+        if (!refreshingTasks) {
+            metrics.setText("正在加载当前栏目…");
+            content.removeAllViews();
+        }
         findViewById(R.id.module_go_config).setVisibility(View.GONE);
         NasBridgeClient next = new NasBridgeClient();
         client = next;
@@ -112,6 +131,10 @@ public class ServiceModuleActivity extends Activity {
                     status.setTextColor(Color.parseColor("#A34D46"));
                     metrics.setText(error.getMessage() == null ? "请检查服务地址和网络" : error.getMessage());
                     loadedRoute = null;
+                    if (dailyTasks != null) {
+                        status.setText(refreshingTasks ? "刷新失败 · 下方保留上次结果" : "读取失败 · 15 秒后重试");
+                        scheduleTaskRefresh(true);
+                    }
                 });
             }
         });
@@ -131,19 +154,15 @@ public class ServiceModuleActivity extends Activity {
         } else if ("tasks".equals(module)) {
             JSONObject summary = data.optJSONObject("metrics");
             if (summary == null) summary = new JSONObject();
-            metrics.setText("今日运行：" + summary.optInt("today_runs") + "\n总运行：" + summary.optInt("total_runs")
-                + " · 成功：" + summary.optInt("success_runs") + " · 失败：" + summary.optInt("failed_runs")
-                + "\n概要记录：" + summary.optInt("summary_count"));
-            heading("最近运行");
-            JSONArray runs = data.optJSONArray("runs");
-            if (runs == null || runs.length() == 0) card("暂无运行记录", "");
-            for (int i = 0; runs != null && i < Math.min(runs.length(), 30); i++) {
-                JSONObject run = runs.optJSONObject(i);
-                if (run == null || run.optBoolean("hidden")) continue;
-                card(value(run, "run_date") + " · " + state(value(run, "status")),
-                    "开始：" + value(run, "started_at") + "\n视频：" + run.optInt("video_count")
-                    + " · 概要：" + run.optInt("summary_count") + "\n" + value(run, "run_summary"));
-            }
+            metrics.setText("今日运行  " + summary.optInt("today_runs") + " 次    ·    总计  " + summary.optInt("total_runs") + " 次"
+                + "\n成功  " + summary.optInt("success_runs") + "    /    失败  " + summary.optInt("failed_runs")
+                + "\n最近概要  " + summary.optInt("summary_count") + " 篇");
+            dailyTasks.render(data);
+            boolean running = DailyTasksView.hasRunning(data);
+            status.setText("更新于 " + DailyTaskFormat.time(data.optString("read_at"))
+                + (running ? " · 运行中，每 15 秒刷新" : " · 可手动刷新"));
+            refreshingTasks = false;
+            scheduleTaskRefresh(running);
         } else if ("certificates".equals(module)) {
             metrics.setText("证书：" + overview.certificates + "\n" + (warning == null ? "证书与反向代理状态已读取" : "反向代理读取失败：" + warning));
             heading("证书状态");
@@ -187,7 +206,7 @@ public class ServiceModuleActivity extends Activity {
                 card(value(network, "name"), description.toString());
             }
         }
-        card("更新时间", DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(new Date()));
+        if (dailyTasks == null) card("更新时间", DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(new Date()));
     }
 
     private static String value(JSONObject data, String key) { return data.isNull(key) ? "—" : data.optString(key, "—"); }
@@ -232,7 +251,15 @@ public class ServiceModuleActivity extends Activity {
         return String.format(Locale.getDefault(), "%.1f %s", amount, units[unit]);
     }
     private void cancel() { generation++; if (client != null) client.cancel(); if (task != null) task.cancel(true); client = null; task = null; }
-    @Override protected void onStart() { super.onStart(); if (monitor != null) monitor.addListener(listener); }
-    @Override protected void onStop() { if (monitor != null) monitor.removeListener(listener); cancel(); loadedRoute = null; super.onStop(); }
+    @Override protected void onStart() { super.onStart(); visible = true; if (monitor != null) monitor.addListener(listener); }
+    @Override protected void onStop() { visible = false; refreshHandler.removeCallbacks(refreshTasks); if (monitor != null) monitor.removeListener(listener); cancel(); loadedRoute = null; super.onStop(); }
+    private void scheduleTaskRefresh(boolean again) {
+        refreshHandler.removeCallbacks(refreshTasks);
+        if (visible && again) refreshHandler.postDelayed(refreshTasks, 15000);
+    }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        if (dailyTasks != null) dailyTasks.save(state);
+        super.onSaveInstanceState(state);
+    }
     @Override protected void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
 }
