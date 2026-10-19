@@ -1,39 +1,38 @@
 package com.nas.dashboard.presence;
 
-/** WGS-84 great-circle checks and an elapsed-time window; independent of Android. */
+/** WGS-84 distance and periodic checks until departure is confirmed. */
 public final class GeofencePolicy {
+    public static long interval(boolean testMode) { return testMode ? 60_000L : 30 * 60_000L; }
     public static double distance(double lat, double lon, double centerLat, double centerLon) {
         double p = Math.toRadians(lat), q = Math.toRadians(centerLat);
         double a = Math.pow(Math.sin((p-q)/2), 2) + Math.cos(p)*Math.cos(q)
             * Math.pow(Math.sin(Math.toRadians(lon-centerLon)/2), 2);
         return 6371008.8 * 2 * Math.asin(Math.sqrt(Math.max(0, Math.min(1, a))));
     }
-    public static boolean outside(double distance, double radius, double buffer, double accuracy) {
+    public static boolean outside(double distance, double radius, double accuracy) {
         return Double.isFinite(distance) && Double.isFinite(accuracy) && accuracy >= 0
-            && distance > radius + buffer + accuracy;
+            && distance > radius + accuracy;
     }
-    public static final class Window {
-        private long since = -1;
-        private int slot;
+    public static final class Schedule {
+        private long lastCheck = -1;
+        private int checks;
         private boolean outside;
-        public void update(PresencePolicy.State state, boolean probing, long now) {
-            if (probing) return;
-            if (state != PresencePolicy.State.AWAY) { reset(); return; }
-            if (since < 0) since = now;
+        public void update(PresencePolicy.State state, long now) {
+            if (state == PresencePolicy.State.HOME) { reset(); return; }
+            if (state == PresencePolicy.State.AWAY && lastCheck < 0) lastCheck = now;
         }
-        public void reset() { since = -1; slot = 0; outside = false; }
-        public boolean active() { return since >= 0; }
-        public long elapsed(long now) { return since < 0 ? 0 : Math.max(0, now - since); }
-        public long remaining(long now, long duration) { return Math.max(0, duration - elapsed(now)); }
+        public void reset() { lastCheck = -1; checks = 0; outside = false; }
+        public void reschedule(long now) { if (active()) lastCheck = now; }
+        public boolean active() { return lastCheck >= 0; }
         public boolean outside() { return outside; }
         public void markOutside() { outside = true; }
-        public int checks() { return slot; }
-        public long nextIn(long now, long interval) { return Math.max(0, (slot + 1L) * interval - elapsed(now)); }
+        public int checks() { return checks; }
+        public long nextIn(long now, long interval) { return Math.max(0, interval - Math.max(0, now - lastCheck)); }
+        public void checked(long now) { lastCheck = now; checks++; }
         /** Skip missed slots after sleep rather than producing a burst of stale checks. */
-        public boolean claim(long now, long interval, long duration) {
-            long elapsed = elapsed(now);
-            if (!active() || outside || elapsed > duration + Math.min(30000, interval / 2) || elapsed < (slot + 1L) * interval) return false;
-            slot = (int) Math.min(duration / interval, elapsed / interval);
+        public boolean claim(long now, long interval) {
+            if (!active() || outside || nextIn(now, interval) > 0) return false;
+            checked(now);
             return true;
         }
     }

@@ -43,7 +43,7 @@ public class NasOverviewActivity extends Activity {
         int request = generation;
         route.setText(selection.baseUrl + "\n" + selection.reason);
         content.removeAllViews();
-        status.setTextColor(Color.parseColor("#75F0D2"));
+        status.setTextColor(Color.parseColor("#52745F"));
         status.setText(selection.baseUrl.isEmpty() ? R.string.bridge_unconfigured : R.string.bridge_wait);
         metrics.setText(R.string.bridge_description);
         if (selection.checking || selection.baseUrl.isEmpty()) return;
@@ -58,7 +58,7 @@ public class NasOverviewActivity extends Activity {
                 runOnUiThread(() -> {
                     if (request != generation) return;
                     status.setText(R.string.bridge_not_loaded);
-                    status.setTextColor(Color.parseColor("#FF9FAD"));
+                    status.setTextColor(Color.parseColor("#A34D46"));
                     metrics.setText(failure.getMessage() == null ? getString(R.string.bridge_connection_needed) : failure.getMessage());
                 });
             }
@@ -90,7 +90,7 @@ public class NasOverviewActivity extends Activity {
     }
 
     private void heading(String text) {
-        TextView view = label(text, 19, "#75F0D2");
+        TextView view = label(text, 19, "#52745F");
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.topMargin = dp(24);
         view.setLayoutParams(params);
@@ -105,9 +105,9 @@ public class NasOverviewActivity extends Activity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.topMargin = dp(12);
         card.setLayoutParams(params);
-        card.addView(label(title, 16, "#E6F4FF"));
+        card.addView(label(title, 16, "#3B3A49"));
         if (!description.isEmpty()) {
-            TextView body = label(description, 13, "#9BB4C7");
+            TextView body = label(description, 13, "#706B75");
             body.setPadding(0, dp(8), 0, 0);
             card.addView(body);
         }

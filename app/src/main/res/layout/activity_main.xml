@@ -3,11 +3,13 @@
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="vertical" android:background="@drawable/background">
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp" android:layout_marginTop="24dp" android:text="@string/brand"
+        android:drawableStart="@drawable/sparrow_small" android:drawablePadding="12dp" android:gravity="center_vertical"
+        android:layout_marginHorizontal="24dp" android:layout_marginTop="16dp" android:text="@string/brand"
         android:textColor="@color/text_secondary" android:textSize="12sp" android:letterSpacing="0.16" />
     <TextView android:id="@+id/page_title" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginHorizontal="24dp" android:layout_marginTop="16dp" android:textSize="30sp"
         android:textColor="@color/text_primary" android:fontFamily="sans-serif-medium" />
+    <View android:layout_width="64dp" android:layout_height="5dp" android:layout_marginStart="24dp" android:layout_marginTop="8dp" android:layout_marginBottom="4dp" android:background="@drawable/crayon_underline" android:importantForAccessibility="no" />
     <FrameLayout android:id="@+id/tab_content" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
         <include layout="@layout/panel_overview" />
         <ScrollView android:id="@+id/services_panel" android:layout_width="match_parent" android:layout_height="match_parent">
@@ -106,6 +108,11 @@
         </ScrollView>
         <ScrollView android:id="@+id/settings_panel" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+                <Button android:id="@+id/scan_setup_button" android:layout_width="match_parent" android:layout_height="72dp"
+                    android:background="@drawable/card" android:text="@string/scan_setup" android:gravity="center_vertical|start"
+                    android:paddingHorizontal="20dp" android:textColor="@color/brand_mint" android:textSize="17sp" android:stateListAnimator="@null" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginVertical="12dp"
+                    android:text="@string/scan_setup_hint" android:textColor="@color/text_secondary" android:textSize="13sp" />
                 <Button android:id="@+id/network_settings_button" android:layout_width="match_parent" android:layout_height="72dp"
                     android:background="@drawable/card" android:text="@string/network_settings_entry" android:gravity="center_vertical|start"
                     android:paddingHorizontal="20dp" android:textColor="@color/text_body" android:textSize="17sp" android:stateListAnimator="@null" />

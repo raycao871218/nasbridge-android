@@ -25,4 +25,9 @@ public final class HostSettings {
             .putString("local", config.localBaseUrl)
             .putString("public", config.publicBaseUrl).apply();
     }
+
+    public void importConfiguration(HostConfig config) throws java.io.IOException {
+        if (!preferences.edit().putString("ssid", config.ssid).putString("local", config.localBaseUrl)
+                .putString("public", config.publicBaseUrl).commit()) throw new java.io.IOException();
+    }
 }

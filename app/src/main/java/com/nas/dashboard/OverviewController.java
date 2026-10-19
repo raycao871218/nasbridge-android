@@ -138,9 +138,9 @@ public final class OverviewController {
             String title = articleTitle(preview, id);
             ArticleStore.Article article = articles.put(route.baseUrl, id, title, stamp, preview);
             LinearLayout card = card(target);
-            card.addView(label(title, 17, "#E6F4FF"));
-            TextView meta = label("今日新文章 · 未读", 12, "#9BB4C7"); meta.setPadding(0, dp(8), 0, 0); card.addView(meta);
-            Button open = new Button(activity); open.setText("快速阅读文章　↗"); open.setTextColor(Color.parseColor("#071D2B"));
+            card.addView(label(title, 17, "#3B3A49"));
+            TextView meta = label("今日新文章 · 未读", 12, "#706B75"); meta.setPadding(0, dp(8), 0, 0); card.addView(meta);
+            Button open = new Button(activity); open.setText("快速阅读文章　↗"); open.setTextColor(Color.parseColor("#3B3A49"));
             open.setBackgroundResource(R.drawable.button); open.setTag("article:" + id);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(50)); params.topMargin = dp(14); open.setLayoutParams(params);
             open.setOnClickListener(v -> activity.startActivity(new Intent(activity, ArticleActivity.class)
@@ -159,13 +159,13 @@ public final class OverviewController {
             JSONObject cert = certificates.optJSONObject(i); if (cert == null) continue;
             Double days = OverviewPolicy.daysRemaining(cert.optString("expires_at", ""), System.currentTimeMillis());
             LinearLayout card = card(target);
-            card.addView(label(cert.optString("name", "未命名证书"), 16, "#E6F4FF"));
+            card.addView(label(cert.optString("name", "未命名证书"), 16, "#3B3A49"));
             String lifetime = days == null ? "有效期未知" : days < 0 ? String.format(Locale.getDefault(), "已过期 %.1f 天", -days)
                 : String.format(Locale.getDefault(), "剩余 %.1f 天", days);
             TextView value = label(lifetime, 18, OverviewPolicy.certificateColor(days)); value.setTag("certificate:" + cert.optString("id", ""));
             value.setPadding(0, dp(10), 0, dp(6)); card.addView(value);
             JSONArray domains = cert.optJSONArray("domains");
-            if (domains != null) { StringBuilder names = new StringBuilder(); for (int j = 0; j < domains.length(); j++) { if (j > 0) names.append("、"); names.append(domains.optString(j)); } card.addView(label(names.toString(), 12, "#9BB4C7")); }
+            if (domains != null) { StringBuilder names = new StringBuilder(); for (int j = 0; j < domains.length(); j++) { if (j > 0) names.append("、"); names.append(domains.optString(j)); } card.addView(label(names.toString(), 12, "#706B75")); }
         }
     }
 

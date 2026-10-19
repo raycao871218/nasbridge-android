@@ -36,7 +36,7 @@ public final class SmsActivity extends Activity {
         status=findViewById(R.id.sms_status);query=findViewById(R.id.sms_query);
         if(state!=null){search=state.getString("search","");query.setText(search);}
         ListView list=findViewById(R.id.sms_list);
-        more=new Button(this);more.setText("加载更多短信");more.setTextColor(android.graphics.Color.parseColor("#75F0D2"));more.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        more=new Button(this);more.setText("加载更多短信");more.setTextColor(android.graphics.Color.parseColor("#52745F"));more.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         list.addFooterView(more,null,false);more.setVisibility(View.GONE);more.setOnClickListener(v->load(false));
         adapter=new SmsAdapter();list.setAdapter(adapter);
         findViewById(R.id.sms_back).setOnClickListener(v->finish());

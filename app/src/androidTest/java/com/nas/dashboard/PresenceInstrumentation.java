@@ -39,9 +39,9 @@ public final class PresenceInstrumentation extends Instrumentation {
                 try { PresenceSettings.validateUrl(url); throw new AssertionError("Accepted " + url); }
                 catch (IllegalArgumentException expected) { checks++; }
             }
-            require(settings.testMode() && settings.awayDelayMillis() == 60_000, "Test mode defaults to one minute");
+            require(!settings.testMode() && settings.checkIntervalMillis() == 1_800_000, "Normal mode defaults to thirty minutes");
             settings.prefs.edit().putBoolean("test_mode", false).commit();
-            require(settings.awayDelayMillis() == 14_400_000, "Normal delay is four hours");
+            require(settings.checkIntervalMillis() == 1_800_000, "Normal interval is thirty minutes");
             settings.prefs.edit().putBoolean("test_mode", true).commit();
             HomeAssistantClient client = new HomeAssistantClient();
             String base = "http://127.0.0.1:" + fixture.server.getLocalPort() + "/";
@@ -74,20 +74,15 @@ public final class PresenceInstrumentation extends Instrumentation {
                 "presence-fixture-never-matches", "https://127.0.0.1:1/", "https://127.0.0.1:2/"));
             runOnMainSync(() -> ((DashboardApplication) context.getApplicationContext()).monitor().configurationChanged());
             runOnMainSync(() -> screen.findViewById(R.id.presence_start).performClick());
-            waitStatus(settings, "当前使用外网");
-            require(settings.prefs.getString("status", "").contains("1 分钟"), "Shared public route starts one-minute grace period");
+            waitStatus(settings, "尚未启用 NAS 围栏");
+            require(screen.findViewById(R.id.presence_test_now) != null, "Immediate test button available");
             require(settings.enabled(), "Foreground service enabled from settings");
             runOnMainSync(() -> screen.moveTaskToBack(true));
-            String firstText = notificationText(context);
-            require(firstText.contains("剩余 00:"), "Background notification displays countdown");
-            String firstStatus = settings.currentStatus();
-            long deadline = settings.prefs.getLong("countdown_deadline", 0);
-            long end = android.os.SystemClock.elapsedRealtime() + 4000;
-            while (firstText.equals(notificationText(context)) && android.os.SystemClock.elapsedRealtime() < end) Thread.sleep(100);
-            require(!firstText.equals(notificationText(context)), "Notification countdown ticks in background");
-            require(!firstStatus.equals(settings.currentStatus()), "Settings countdown ticks in background");
-            require(deadline == settings.prefs.getLong("countdown_deadline", 0), "Display ticks do not restart or persist countdown");
-            require(settings.prefs.getString("status", "").contains("当前使用外网"), "Countdown does not trigger early HA sync");
+            require(notificationText(context).contains("保留原状态"), "Missing fence preserves state without departure timeout");
+            runOnMainSync(() -> ((android.widget.Switch)screen.findViewById(R.id.presence_test_mode)).setChecked(false));
+            require(settings.checkIntervalMillis() == 1_800_000, "Switch immediately restores normal interval");
+            runOnMainSync(() -> ((android.widget.Switch)screen.findViewById(R.id.presence_test_mode)).setChecked(true));
+            require(settings.checkIntervalMillis() == 60_000, "Switch immediately enables one-minute checks");
             boolean foreground = false;
             for (ActivityManager.RunningServiceInfo info : context.getSystemService(ActivityManager.class).getRunningServices(100)) {
                 if (info.service.getClassName().equals(PresenceService.class.getName())) foreground = info.foreground;
@@ -122,7 +117,7 @@ public final class PresenceInstrumentation extends Instrumentation {
             runOnMainSync(home::finish);
             homeActivity = startActivitySync(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
             waitService(true);
-            waitStatus(settings, "当前使用外网");
+            waitStatus(settings, "尚未启用 NAS 围栏");
             require(PresenceService.isRunning(), "MainActivity automatically restores an opted-in missing service");
             Activity restored = homeActivity;
             runOnMainSync(() -> restored.moveTaskToBack(true));

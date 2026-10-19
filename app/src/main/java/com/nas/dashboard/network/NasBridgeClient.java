@@ -101,10 +101,10 @@ public final class NasBridgeClient {
     public Overview load(ConnectionFactory factory) throws IOException {
         try {
             JSONObject health = get(factory, "api/health", 65536);
-            if (!"ok".equals(health.optString("status"))) throw new IOException("NASBridge 健康检查未通过");
+            if (!"ok".equals(health.optString("status"))) throw new IOException("鸟巢健康检查未通过");
             return new Overview(get(factory, "api/overview", 2 * 1024 * 1024));
         } catch (JSONException invalid) {
-            throw new IOException("该地址未返回有效的 NASBridge 数据，请检查 Host 和服务路径", invalid);
+            throw new IOException("该地址未返回有效的 鸟巢数据，请检查 Host 和服务路径", invalid);
         }
     }
 
@@ -154,14 +154,14 @@ public final class NasBridgeClient {
                 try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes); }
             }
             int code = connection.getResponseCode();
-            if (code == 401 || code == 403) throw new IOException("NASBridge 需要登录或访问授权");
-            if (code < 200 || code >= 300) throw new IOException("NASBridge 接口返回 HTTP " + code + "，请检查服务地址或登录状态");
+            if (code == 401 || code == 403) throw new IOException("鸟巢需要登录或访问授权");
+            if (code < 200 || code >= 300) throw new IOException("鸟巢接口返回 HTTP " + code + "，请检查服务地址或登录状态");
             try (InputStream input = connection.getInputStream(); ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
                 int count;
                 while ((count = input.read(buffer)) != -1) {
                     if (cancelled) throw new IOException("已取消");
-                    if (bytes.size() + count > limit) throw new IOException("NASBridge 返回数据过大");
+                    if (bytes.size() + count > limit) throw new IOException("鸟巢返回数据过大");
                     bytes.write(buffer, 0, count);
                 }
                 return new JSONObject(new String(bytes.toByteArray(), StandardCharsets.UTF_8));

@@ -3,8 +3,6 @@ package com.nas.dashboard;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -13,6 +11,7 @@ import com.nas.dashboard.network.HostConfig;
 import com.nas.dashboard.network.ConnectionMonitor;
 import android.graphics.Color;
 import com.nas.dashboard.network.HostSettings;
+import com.nas.dashboard.network.CurrentWifi;
 
 public class NetworkSettingsActivity extends Activity {
     private EditText ssid;
@@ -37,6 +36,9 @@ public class NetworkSettingsActivity extends Activity {
         if (config != null) {
             ssid.setText(config.ssid);
             showAddresses(config);
+        } else {
+            String current = CurrentWifi.read(this);
+            if (!current.isEmpty()) ssid.setText(current);
         }
         monitor = ((DashboardApplication) getApplication()).monitor();
         findViewById(R.id.back_button).setOnClickListener(v -> finish());
@@ -81,12 +83,9 @@ public class NetworkSettingsActivity extends Activity {
         publicPort.setText(HostConfig.portOf(config.publicBaseUrl));
     }
 
-    @SuppressWarnings("deprecation")
     private void readWifi() {
-        WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
-        WifiInfo info = wifi == null ? null : wifi.getConnectionInfo();
-        String name = info == null ? "" : HostConfig.normalizeSsid(info.getSSID());
-        if (name.isEmpty() || WifiManager.UNKNOWN_SSID.equals(name)) {
+        String name = CurrentWifi.read(this);
+        if (name.isEmpty()) {
             Toast.makeText(this, R.string.wifi_unavailable, Toast.LENGTH_LONG).show();
         } else {
             ssid.setText(name);
@@ -111,8 +110,8 @@ public class NetworkSettingsActivity extends Activity {
         ((TextView) findViewById(R.id.route_reason)).setText(state.reason);
         TextView status = findViewById(R.id.connection_status);
         status.setText(state.title);
-        status.setTextColor(Color.parseColor(state.baseUrl.isEmpty() || "地址已选择".equals(state.title) ? "#9BB4C7" : state.checking ? "#75F0D2" : state.success ? "#75F0D2"
-            : state.reachable ? "#F3C879" : "#FF9FAD"));
+        status.setTextColor(Color.parseColor(state.baseUrl.isEmpty() || "地址已选择".equals(state.title) ? "#706B75" : state.checking ? "#52745F" : state.success ? "#52745F"
+            : state.reachable ? "#916524" : "#A34D46"));
         ((TextView) findViewById(R.id.connection_detail)).setText(state.detail);
         findViewById(R.id.refresh_button).setEnabled(!state.checking);
     }

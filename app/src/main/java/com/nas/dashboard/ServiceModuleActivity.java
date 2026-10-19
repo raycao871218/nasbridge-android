@@ -76,7 +76,7 @@ public class ServiceModuleActivity extends Activity {
         int request = generation;
         route.setText(selection.baseUrl + "\n" + selection.reason);
         status.setText("正在读取服务数据…");
-        status.setTextColor(Color.parseColor("#75F0D2"));
+        status.setTextColor(Color.parseColor("#52745F"));
         metrics.setText("正在加载当前栏目…");
         content.removeAllViews();
         findViewById(R.id.module_go_config).setVisibility(View.GONE);
@@ -109,7 +109,7 @@ public class ServiceModuleActivity extends Activity {
                 runOnUiThread(() -> {
                     if (request != generation) return;
                     status.setText("读取失败");
-                    status.setTextColor(Color.parseColor("#FF9FAD"));
+                    status.setTextColor(Color.parseColor("#A34D46"));
                     metrics.setText(error.getMessage() == null ? "请检查服务地址和网络" : error.getMessage());
                     loadedRoute = null;
                 });
@@ -119,7 +119,7 @@ public class ServiceModuleActivity extends Activity {
 
     private void render(NasBridgeClient.Overview overview, JSONObject data, String warning) {
         status.setText(warning == null ? "数据已更新" : "部分数据未能加载");
-        status.setTextColor(Color.parseColor(warning == null ? "#75F0D2" : "#F3C879"));
+        status.setTextColor(Color.parseColor(warning == null ? "#52745F" : "#916524"));
         if ("mihomo".equals(module)) {
             metrics.setText("Mihomo：" + state(overview.mihomoStatus) + "\n活动连接：" + overview.connections
                 + "（代理 " + overview.proxiedConnections + " / 直连 " + overview.directConnections + "）"
@@ -163,8 +163,8 @@ public class ServiceModuleActivity extends Activity {
         } else if ("aliyun".equals(module)) {
             boolean configured = data.optBoolean("configured");
             metrics.setText(configured ? "阿里云凭据：已配置" : "阿里云凭据：未配置");
-            card("安全组接入", configured ? "NASBridge 已配置访问凭据。地域选择、安全组规则查询和管理操作后续接入。"
-                : "请先在 NASBridge 服务端配置阿里云凭据。应用不保存或显示 AccessKey。");
+            card("安全组接入", configured ? "鸟巢已配置访问凭据。地域选择、安全组规则查询和管理操作后续接入。"
+                : "请先在 鸟巢服务端配置阿里云凭据。应用不保存或显示 AccessKey。");
         } else if ("zerotier".equals(module)) {
             JSONArray networks = data.optJSONArray("items");
             metrics.setText("网络数量：" + (networks == null ? 0 : networks.length()));
@@ -208,16 +208,16 @@ public class ServiceModuleActivity extends Activity {
         }
     }
     private void heading(String text) {
-        TextView view = label(text, 19, "#75F0D2");
+        TextView view = label(text, 19, "#52745F");
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.topMargin = dp(24); view.setLayoutParams(params); content.addView(view);
     }
-    private void card(String title, String description) { card(title, description, "#9BB4C7"); }
+    private void card(String title, String description) { card(title, description, "#706B75"); }
     private void card(String title, String description, String color) {
         LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(16), dp(16), dp(16)); card.setBackgroundResource(R.drawable.card);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(12); card.setLayoutParams(params);
-        card.addView(label(title, 16, "#E6F4FF"));
+        card.addView(label(title, 16, "#3B3A49"));
         if (!description.isEmpty()) { TextView body = label(description, 13, color); body.setPadding(0, dp(8), 0, 0); card.addView(body); }
         content.addView(card);
     }

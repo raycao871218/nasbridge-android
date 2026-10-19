@@ -43,7 +43,7 @@ public final class ArticlesActivity extends Activity {
         monitor=((DashboardApplication)getApplication()).monitor();
         status=findViewById(R.id.articles_status);
         ListView list=findViewById(R.id.articles_list);
-        more=new Button(this); more.setText(R.string.articles_more); more.setTag("articles:more"); more.setTextColor(android.graphics.Color.parseColor("#75F0D2"));
+        more=new Button(this); more.setText(R.string.articles_more); more.setTag("articles:more"); more.setTextColor(android.graphics.Color.parseColor("#52745F"));
         more.setBackgroundColor(android.graphics.Color.TRANSPARENT); list.addFooterView(more,null,false);
         more.setVisibility(View.GONE);
         more.setOnClickListener(v -> load(false));

@@ -23,6 +23,8 @@ public class MainActivity extends Activity {
             startActivity(new Intent(this, NetworkSettingsActivity.class)));
         findViewById(R.id.presence_settings_button).setOnClickListener(v ->
             startActivity(new Intent(this, PresenceSettingsActivity.class)));
+        findViewById(R.id.scan_setup_button).setOnClickListener(v ->
+            startActivity(new Intent(this, SetupScannerActivity.class)));
         bindModule(R.id.module_mihomo, "mihomo");
         findViewById(R.id.module_articles).setOnClickListener(v -> startActivity(new Intent(this, ArticlesActivity.class)));
         findViewById(R.id.module_sms).setOnClickListener(v -> startActivity(new Intent(this, SmsActivity.class)));
@@ -51,7 +53,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < ids.length; i++) {
             TextView item = findViewById(ids[i]);
             item.setSelected(i == tab);
-            int color = Color.parseColor(i == tab ? "#8AB5FF" : "#9BB4C7");
+            int color = Color.parseColor(i == tab ? "#4D669D" : "#706B75");
             item.setTextColor(color);
             for (android.graphics.drawable.Drawable icon : item.getCompoundDrawables()) {
                 if (icon != null) icon.mutate().setTint(color);

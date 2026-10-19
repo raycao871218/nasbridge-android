@@ -9,9 +9,9 @@ import java.util.TimeZone;
 
 /** Display policy uses the NAS user's Asia/Shanghai day, independent of device locale. */
 public final class OverviewPolicy {
-    public static final String GREEN = "#75F0D2";
-    public static final String YELLOW = "#F3C879";
-    public static final String UNKNOWN = "#9BB4C7";
+    public static final String GREEN = "#52745F";
+    public static final String YELLOW = "#916524";
+    public static final String UNKNOWN = "#706B75";
     private static final TimeZone ZONE = TimeZone.getTimeZone("Asia/Shanghai");
     private OverviewPolicy() { }
 

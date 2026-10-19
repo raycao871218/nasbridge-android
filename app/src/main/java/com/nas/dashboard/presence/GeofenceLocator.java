@@ -35,14 +35,14 @@ public final class GeofenceLocator implements LocationListener {
             } catch (SecurityException | IllegalArgumentException ignored) { }
         }
         if (providers == 0) { finish(null); return; }
-        main.postDelayed(timeout, Math.min(30000, config.interval / 2));
+        main.postDelayed(timeout, 30000);
     }
     public static boolean valid(Location l, GeofenceConfig config) {
         if (l == null || !l.hasAccuracy() || !Float.isFinite(l.getAccuracy()) || l.getAccuracy() < 0 || l.getAccuracy() > config.maxAccuracy
             || !Double.isFinite(l.getLatitude()) || !Double.isFinite(l.getLongitude())
             || Math.abs(l.getLatitude()) > 90 || Math.abs(l.getLongitude()) > 180) return false;
         long age = SystemClock.elapsedRealtimeNanos() - l.getElapsedRealtimeNanos();
-        return l.getElapsedRealtimeNanos() > 0 && age >= 0 && age / 1000000 <= config.maxAge;
+        return l.getElapsedRealtimeNanos() > 0 && age >= 0 && age / 1000000 <= Math.min(config.maxAge, 60000);
     }
     @Override public void onLocationChanged(Location location) { if (callback != null && valid(location, config)) finish(location); }
     @Override public void onProviderEnabled(String provider) { }
