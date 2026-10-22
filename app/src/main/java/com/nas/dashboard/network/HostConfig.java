@@ -2,11 +2,15 @@ package com.nas.dashboard.network;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 
 /** Immutable, validated settings. Kept free of Android dependencies for policy tests. */
 public final class HostConfig {
     public final String ssid;
     public final String localBaseUrl;
+    public final List<String> localBaseUrls;
     public final String publicBaseUrl;
 
     public HostConfig(String ssid, String localBaseUrl, String publicBaseUrl) {
@@ -14,17 +18,39 @@ public final class HostConfig {
         if (this.ssid.isEmpty() || this.ssid.equals("<unknown ssid>")) {
             throw new IllegalArgumentException("请填写家庭 Wi-Fi 名称");
         }
-        this.localBaseUrl = normalizeUrl(localBaseUrl, "局域网 Host");
+        List<String> addresses = new ArrayList<>();
+        for (String value : localBaseUrl.split("[\\r\\n,，;；]+")) {
+            if (value.trim().isEmpty()) continue;
+            String address = normalizeUrl(value, "局域网 Host");
+            if (!addresses.contains(address)) addresses.add(address);
+        }
+        if (addresses.isEmpty() || addresses.size() > 8)
+            throw new IllegalArgumentException("请填写 1–8 个内网地址，按优先级从高到低排列");
+        this.localBaseUrls = Collections.unmodifiableList(addresses);
+        this.localBaseUrl = addresses.get(0);
         this.publicBaseUrl = normalizeUrl(publicBaseUrl, "公网 Host2");
     }
 
     public HostConfig(String ssid, String localHost, String localPort,
                       String publicHost, String publicPort) {
-        this(ssid, withPort(localHost, localPort, "局域网"),
+        this(ssid, withLocalPorts(localHost, localPort),
             withPort(publicHost, publicPort, "公网"));
     }
 
+    private static String withLocalPorts(String hosts, String port) {
+        List<String> addresses = new ArrayList<>();
+        for (String host : hosts.split("[\\r\\n,，;；]+")) {
+            if (!host.trim().isEmpty()) addresses.add(withPort(host, port, "局域网"));
+        }
+        return String.join("\n", addresses);
+    }
+
+    public String localAddressesText() { return String.join("\n", localBaseUrls); }
+
     private static String withPort(String host, String portText, String label) {
+        if (host == null || host.trim().isEmpty()) throw new IllegalArgumentException(label + "地址不能为空");
+        host = host.trim();
+        if (!host.contains("://")) host = ("公网".equals(label) ? "https://" : "http://") + host;
         String normalized = normalizeUrl(host, label + " Host");
         String text = portText == null ? "" : portText.trim();
         if (text.isEmpty()) return normalized;
@@ -76,7 +102,11 @@ public final class HostConfig {
     }
 
     public String pingHost() {
-        String host = URI.create(localBaseUrl).getHost();
+        return pingHost(localBaseUrl);
+    }
+
+    public static String pingHost(String baseUrl) {
+        String host = URI.create(baseUrl).getHost();
         return host.startsWith("[") ? host.substring(1, host.length() - 1) : host;
     }
 

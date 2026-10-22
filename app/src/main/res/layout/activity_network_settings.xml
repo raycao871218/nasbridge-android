@@ -24,19 +24,16 @@
             android:text="@string/permission_note" android:textColor="@color/text_secondary" android:textSize="12sp" android:lineSpacingExtra="4dp" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="24dp" android:text="@string/local_label" android:textColor="@color/text_body"
-            android:textSize="14sp" android:labelFor="@+id/local_host" />
-        <EditText android:minHeight="56dp" android:id="@id/local_host" android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" android:background="@drawable/card" android:paddingHorizontal="14dp"
-            android:textColor="@color/text_primary" android:textColorHint="@color/text_hint" android:textSize="14sp"
-            android:hint="@string/local_hint" android:inputType="textUri" android:singleLine="true"
-            android:importantForAutofill="no" />
+            android:textSize="14sp" />
+        <LinearLayout android:id="@+id/local_hosts" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        <Button android:id="@+id/add_local_host" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="＋ 添加内网地址" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="16dp" android:text="@string/local_port_label" android:textColor="@color/text_body"
             android:textSize="14sp" android:labelFor="@+id/local_port" />
         <EditText android:minHeight="56dp" android:id="@id/local_port" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="8dp" android:background="@drawable/card" android:paddingHorizontal="14dp"
             android:textColor="@color/text_primary" android:textColorHint="@color/text_hint" android:textSize="14sp"
-            android:hint="@string/port_hint" android:inputType="number" android:singleLine="true"
+            android:hint="@string/local_port_hint" android:inputType="number" android:singleLine="true"
             android:importantForAutofill="no" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="24dp" android:text="@string/public_label" android:textColor="@color/text_body"

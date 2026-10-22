@@ -30,7 +30,15 @@ public final class AppSetupConfig {
         if (!(rawSsid instanceof String)) throw new IllegalArgumentException();
         String ssid = (String)rawSsid;
         if (ssid.getBytes(StandardCharsets.UTF_8).length > 32 || ssid.matches("(?s).*[\\p{Cntrl}].*")) throw new IllegalArgumentException();
-        localUrl = address(n, "local_url", false); publicUrl = address(n, "public_url", false);
+        if (n.has("local_urls")) {
+            JSONArray addresses = n.getJSONArray("local_urls");
+            if (addresses.length() == 0 || addresses.length() > 8) throw new IllegalArgumentException();
+            java.util.List<String> urls = new java.util.ArrayList<>();
+            for (int i = 0; i < addresses.length(); i++)
+                urls.add(address(new JSONObject().put("url", addresses.get(i)), "url", false));
+            localUrl = String.join("\n", urls);
+        } else localUrl = address(n, "local_url", false);
+        publicUrl = address(n, "public_url", false);
         network = ssid.isEmpty() ? null : new HostConfig(ssid, localUrl, publicUrl);
         wifiFromPhone = false;
         if (root.has("presence")) {

@@ -79,7 +79,7 @@ public final class ConnectionMonitor {
         }
         if (route.checking) {
             usableRoute = null;
-            publish(new State("正在选择访问地址…", "正在根据当前 Wi-Fi 自动选择内网或公网地址，无需手动检测。", route, true, false, false));
+            publish(new State("正在选择访问地址…", "正在按填写顺序检测内网地址，全部不可达后才使用公网。", route, true, false, false));
             return;
         }
         usableRoute = route;

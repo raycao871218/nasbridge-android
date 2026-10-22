@@ -25,6 +25,20 @@ public class AppSetupConfigTest {
         data.remove("presence");
         assertFalse(AppSetupConfig.parse(data.toString()).hasPresence());
     }
+    @Test public void importsOrderedLocalAddressesAndPreservesThemWhenResolvingWifi() throws Exception {
+        JSONObject data = fixture();
+        data.getJSONObject("network").put("ssid", "").remove("local_url");
+        data.getJSONObject("network").put("local_urls", new org.json.JSONArray()
+            .put("http://10.10.0.66:18080").put("http://192.168.1.10:8080"));
+        AppSetupConfig pending = AppSetupConfig.parse(data.toString());
+        AppSetupConfig resolved = pending.withWifi("Home");
+        assertEquals(java.util.Arrays.asList("http://10.10.0.66:18080/", "http://192.168.1.10:8080/"),
+            resolved.network.localBaseUrls);
+        assertTrue(resolved.preview().contains("http://192.168.1.10:8080/"));
+        data.getJSONObject("network").put("local_urls", new org.json.JSONArray()); reject(data.toString());
+        data.getJSONObject("network").put("local_urls", new org.json.JSONArray().put("file:///bad")); reject(data.toString());
+        data.getJSONObject("network").put("local_urls", new org.json.JSONArray().put(123)); reject(data.toString());
+    }
     @Test public void emptyWifiRequiresPhoneResolutionAndConfirmation() throws Exception {
         JSONObject data = fixture(); data.getJSONObject("network").put("ssid", "");
         AppSetupConfig pending = AppSetupConfig.parse(data.toString());

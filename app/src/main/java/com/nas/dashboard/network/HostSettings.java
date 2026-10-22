@@ -22,12 +22,12 @@ public final class HostSettings {
 
     public void save(HostConfig config) {
         preferences.edit().putString("ssid", config.ssid)
-            .putString("local", config.localBaseUrl)
+            .putString("local", config.localAddressesText())
             .putString("public", config.publicBaseUrl).apply();
     }
 
     public void importConfiguration(HostConfig config) throws java.io.IOException {
-        if (!preferences.edit().putString("ssid", config.ssid).putString("local", config.localBaseUrl)
+        if (!preferences.edit().putString("ssid", config.ssid).putString("local", config.localAddressesText())
                 .putString("public", config.publicBaseUrl).commit()) throw new java.io.IOException();
     }
 }

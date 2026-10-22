@@ -7,6 +7,9 @@ import android.os.Bundle;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.LinearLayout;
+import android.view.View;
+import java.util.ArrayList;
 import com.nas.dashboard.network.HostConfig;
 import com.nas.dashboard.network.ConnectionMonitor;
 import android.graphics.Color;
@@ -15,7 +18,7 @@ import com.nas.dashboard.network.CurrentWifi;
 
 public class NetworkSettingsActivity extends Activity {
     private EditText ssid;
-    private EditText local;
+    private LinearLayout localHosts;
     private EditText remote;
     private EditText localPort;
     private EditText publicPort;
@@ -27,7 +30,7 @@ public class NetworkSettingsActivity extends Activity {
         super.onCreate(state);
         setContentView(R.layout.activity_network_settings);
         ssid = findViewById(R.id.ssid);
-        local = findViewById(R.id.local_host);
+        localHosts = findViewById(R.id.local_hosts);
         remote = findViewById(R.id.public_host);
         localPort = findViewById(R.id.local_port);
         publicPort = findViewById(R.id.public_port);
@@ -37,9 +40,22 @@ public class NetworkSettingsActivity extends Activity {
             ssid.setText(config.ssid);
             showAddresses(config);
         } else {
+            addLocalAddress("");
             String current = CurrentWifi.read(this);
             if (!current.isEmpty()) ssid.setText(current);
         }
+        if (state != null && state.containsKey("local_addresses")) {
+            localHosts.removeAllViews();
+            for (String address : state.getStringArrayList("local_addresses")) addLocalAddress(address);
+        }
+        findViewById(R.id.add_local_host).setOnClickListener(v -> {
+            if (localHosts.getChildCount() >= 8) {
+                Toast.makeText(this, "最多添加 8 个内网地址", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            addLocalAddress("");
+            localHosts.getChildAt(localHosts.getChildCount() - 1).findViewById(R.id.local_host).requestFocus();
+        });
         monitor = ((DashboardApplication) getApplication()).monitor();
         findViewById(R.id.back_button).setOnClickListener(v -> finish());
         findViewById(R.id.read_wifi_button).setOnClickListener(v -> {
@@ -62,12 +78,12 @@ public class NetworkSettingsActivity extends Activity {
     private void save() {
         try {
             HostConfig config = new HostConfig(ssid.getText().toString(),
-                local.getText().toString(), localPort.getText().toString(),
+                String.join("\n", localAddressValues(true)), localPort.getText().toString(),
                 remote.getText().toString(), publicPort.getText().toString());
             HostConfig previous = settings.load();
             settings.save(config);
             if (previous == null || !previous.ssid.equals(config.ssid)
-                    || !previous.localBaseUrl.equals(config.localBaseUrl)
+                    || !previous.localBaseUrls.equals(config.localBaseUrls)
                     || !previous.publicBaseUrl.equals(config.publicBaseUrl)) monitor.configurationChanged();
             showAddresses(config);
             Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show();
@@ -77,10 +93,57 @@ public class NetworkSettingsActivity extends Activity {
     }
 
     private void showAddresses(HostConfig config) {
-        local.setText(HostConfig.hostWithoutPort(config.localBaseUrl));
-        localPort.setText(HostConfig.portOf(config.localBaseUrl));
-        remote.setText(HostConfig.hostWithoutPort(config.publicBaseUrl));
+        localHosts.removeAllViews();
+        for (String address : config.localBaseUrls) addLocalAddress(withoutDefaultScheme(address, "http://"));
+        localPort.setText("");
+        remote.setText(withoutDefaultScheme(HostConfig.hostWithoutPort(config.publicBaseUrl), "https://"));
         publicPort.setText(HostConfig.portOf(config.publicBaseUrl));
+    }
+
+    private static String withoutDefaultScheme(String address, String scheme) {
+        return address.startsWith(scheme) ? address.substring(scheme.length()) : address;
+    }
+
+    private void addLocalAddress(String address) {
+        View row = getLayoutInflater().inflate(R.layout.item_local_host, localHosts, false);
+        EditText input = row.findViewById(R.id.local_host);
+        input.setText(address);
+        localHosts.addView(row);
+        row.findViewById(R.id.remove_local_host).setOnClickListener(v -> {
+            localHosts.removeView(row);
+            if (localHosts.getChildCount() == 0) addLocalAddress("");
+            updateAddressLabels();
+        });
+        updateAddressLabels();
+    }
+
+    private void updateAddressLabels() {
+        for (int i = 0; i < localHosts.getChildCount(); i++) {
+            View row = localHosts.getChildAt(i);
+            ((TextView) row.findViewById(R.id.local_host_label)).setText("内网地址 " + (i + 1));
+            row.findViewById(R.id.remove_local_host).setContentDescription("删除内网地址 " + (i + 1));
+        }
+        findViewById(R.id.add_local_host).setEnabled(localHosts.getChildCount() < 8);
+    }
+
+    private ArrayList<String> localAddressValues(boolean validate) {
+        ArrayList<String> values = new ArrayList<>();
+        for (int i = 0; i < localHosts.getChildCount(); i++) {
+            EditText input = localHosts.getChildAt(i).findViewById(R.id.local_host);
+            String value = input.getText().toString().trim();
+            if (validate && (value.isEmpty() || value.matches("(?s).*[\\r\\n,，;；].*"))) {
+                input.setError("请填写一个地址，或删除此项");
+                input.requestFocus();
+                throw new IllegalArgumentException("请检查内网地址 " + (i + 1));
+            }
+            values.add(value);
+        }
+        return values;
+    }
+
+    @Override protected void onSaveInstanceState(Bundle outState) {
+        outState.putStringArrayList("local_addresses", localAddressValues(false));
+        super.onSaveInstanceState(outState);
     }
 
     private void readWifi() {

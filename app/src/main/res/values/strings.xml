@@ -10,32 +10,25 @@
     <string name="footer">MADE FOR YOUR EVERYDAY · v0.7.0</string>
     <string name="illustration_description">蜡笔手绘小麻雀</string>
     <string name="settings_title">网络与接口</string>
-    <string name="settings_subtitle">在家走局域网，出门走公网。</string>
+    <string name="settings_subtitle">内网按顺序检测，全部失败后使用公网。地址可省略协议：内网默认 HTTP，公网默认 HTTPS。</string>
     <string name="back">‹　返回配置</string>
     <string name="ssid_label">家庭 Wi-Fi 名称（SSID）</string>
     <string name="ssid_hint">例如：MyHomeWiFi（区分大小写）</string>
-    <string name="local_label">局域网 Host</string>
-    <string name="local_hint">http://192.168.1.10/</string>
+    <string name="local_label">内网地址（从上到下优先，最多 8 个）</string>
+    <string name="local_hint">http://10.10.0.66:18080/\nhttp://192.168.1.10:18080/</string>
     <string name="public_label">公网 Host2</string>
-    <string name="public_hint">https://nas.example.com/</string>
+    <string name="public_hint">nas.example.com</string>
     <string name="read_wifi">授权并读取当前 Wi-Fi</string>
     <string name="save_hosts">保存配置</string>
     <string name="refresh_hosts">检测已保存的 Host</string>
-    <string name="permission_note">识别 Wi-Fi 名称需要精确定位权限和系统定位开关，仅在使用应用时读取；不会收集或上传位置信息。若无法识别，则使用 Host2。</string>
-    <string name="routing_rules">切换规则
-
-连接家庭 Wi-Fi → ping Host（最多 4 秒）
-能 ping 通 → 使用局域网 Host
-ping 失败 / 其他 Wi-Fi / 无 Wi-Fi → 使用 Host2
-
-保存后自动选择访问地址，各功能可直接使用。手动检测仅用于诊断；网络环境变化时自动诊断，不定时轮询。
-
-请填写完整 http(s) 地址，可带端口及接口前缀。ping 只检测主机，不检查接口端口或登录状态；若服务器禁用 ICMP，会回退 Host2。Host2 的公网可用性取决于你的服务配置。</string>
+    <string name="permission_note">识别 Wi-Fi 名称需要精确定位权限和系统定位开关，仅在使用应用时读取；不会收集或上传位置信息。仅用于在家状态判断，不影响内外网地址选择。</string>
+    <string name="routing_rules">切换规则\n\n任何网络（含移动网络、Wi-Fi、VPN）→ 按填写顺序逐个检测内网地址\n前一个 HTTP 连接失败 → 检测下一个\n第一个可达 → 使用该内网地址，停止后续检测\n所有内网地址均不可达 → 使用公网 Host2\n\n点击添加按钮增加内网地址，可分别填写端口。内网省略协议时默认 HTTP，公网默认 HTTPS；也可手动指定 http:// 或 https://。下方统一端口留空时保留各地址端口；填写后覆盖所有内网地址端口。\n\n直接通过系统当前网络检查 HTTP 连接，支持 VPN 路由，不要求连接家庭 Wi-Fi 或开启定位。检测期间暂停业务请求；保存或网络变化后重新按优先级选择。HTTP 认证或错误响应仍表示服务可达，具体错误由业务页面显示。不使用 ping 作为前置条件。</string>
     <string name="active_host_label">当前接口地址</string>
     <string name="not_configured">尚未配置</string>
     <string name="saved">配置已保存</string>
     <string name="wifi_unavailable">无法读取 Wi-Fi 名称，请确认已连接 Wi-Fi、允许精确定位并开启系统定位。</string>
-    <string name="local_port_label">局域网访问端口</string>
+    <string name="local_port_label">内网统一端口（可选；填写后覆盖各地址端口）</string>
+    <string name="local_port_hint">留空保留每行地址的端口</string>
     <string name="public_port_label">公网访问端口</string>
     <string name="port_hint">留空使用默认端口（HTTP 80 / HTTPS 443）</string>
     <string name="connection_unconfigured">尚未配置</string>

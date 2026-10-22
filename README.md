@@ -1,6 +1,6 @@
 # 麻雀会 · NASBridge Android
 
-原生 Android 鸟巢客户端（Java/XML），Android 6.0+，当前版本 0.16.3。应用名为「麻雀会」，采用与「咕咕咕」一致的暖纸蜡笔风和麻雀自适应图标，设计说明见 [BRANDING.md](BRANDING.md)。首次安装不包含 NAS Host 或访问凭据；在家同步预填本项目使用者的 HA 地址及实体，可在设置页修改。
+原生 Android 鸟巢客户端（Java/XML），Android 6.0+，当前版本 0.16.9。应用名为「麻雀会」，采用与「咕咕咕」一致的暖纸蜡笔风和麻雀自适应图标，设计说明见 [BRANDING.md](BRANDING.md)。首次安装不包含 NAS Host 或访问凭据；在家同步预填本项目使用者的 HA 地址及实体，可在设置页修改。
 
 ## 功能
 
@@ -10,7 +10,7 @@
 - 文章：摘要分页、全文阅读、已读文章回看，用户主动点击时才提交已读状态。
 - 视频：缩略图列表、Range 分段播放、倍速、全屏、左右快进/快退、左右两侧分别调亮度/音量；系统解码器决定可用格式。
 - 短信：只读归档、分页搜索和全文，明确识别到验证码后可复制；复制内容标记为敏感。
-- 配置：家庭 Wi-Fi SSID、内网 Host/端口及公网 Host2/端口。匹配家庭 Wi-Fi 时 ICMP 探测内网 Host，失败或其他网络使用 Host2。
+- 配置：家庭 Wi-Fi SSID、多个内网地址及公网 Host2/端口。通过添加按钮逐项填写内网地址，最多 8 个，按从上到下的优先级依次检测；无论移动网络、Wi-Fi 或 VPN，都通过系统当前网络依次检查 HTTP 连接，第一个可达即停止。全部失败后才使用公网，不依赖 SSID、定位权限或 ping。
 - 网络环境变化时更新路由；业务页面不要求先手动诊断。
 - 在家状态同步：复用 App 内外网路由，内网开启 HA input_boolean；持续使用外网 4 小时后关闭（测试模式为 1 分钟，默认开启），支持后台检测、失败重试及状态核对。
 - 底部“通知”栏目暂为空，没有手机推送接收服务。
@@ -85,3 +85,9 @@ XML 调色板位于 `app/src/main/res/values/colors.xml`；动态内容使用同
 扫码导入的独立模拟器验证：`./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PsetupTests -PuiPreview`，安装两份 APK 后运行 `adb -e shell am instrument -w com.nas.dashboard.preview.test/com.nas.dashboard.SetupInstrumentation`。测试使用虚构配置和后台实际渲染的二维码，验证预览/取消、导入、令牌加密及自动同步保持停止。`uiPreview` 使用独立应用 ID，不覆盖个人配置。JUnit 验证命令：`./gradlew :app:testDebugUnitTest`。
 
 每日任务展示测试：`./gradlew :app:testDebugUnitTest` 验证终止阶段状态及北京时间/耗时；`./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PuiPreview -PtaskTests` 生成隔离预览测试包，运行 `com.nas.dashboard.preview.test/com.nas.dashboard.DailyTasksInstrumentation` 验证任务详情、展开恢复、进度和空状态。使用虚构只读数据。
+
+### 多内网地址
+
+网络配置通过“添加内网地址”按钮增加独立输入框，每项可删除，按从上到下的优先级检测。可直接填写 IP 或域名及端口；省略协议时，内网默认 HTTP，公网默认 HTTPS，也可明确指定协议。下方统一端口留空时保留各地址端口，填写后覆盖所有内网地址端口。已有单地址配置自动兼容。路由重新选择期间暂停业务请求，不提前请求公网。HTTP 认证或错误响应仍视为地址可达，由业务页面显示具体错误；不再将 ICMP ping 作为前置条件。
+
+扫码导入兼容旧的 network.local_url，同时支持 network.local_urls 字符串数组（按优先级排列，最多 8 个；存在时优先使用数组）。当前 NAS 后台生成的旧版单地址二维码仍可使用。

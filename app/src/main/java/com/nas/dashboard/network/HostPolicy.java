@@ -3,9 +3,16 @@ package com.nas.dashboard.network;
 public final class HostPolicy {
     private HostPolicy() { }
 
-    public static String select(HostConfig config, boolean wifiConnected,
-                                String connectedSsid, boolean pingSucceeded) {
-        return wifiConnected && config.matches(connectedSsid) && pingSucceeded
-            ? config.localBaseUrl : config.publicBaseUrl;
+    /** Probe in priority order; the public endpoint is only selected after all locals fail. */
+    public static String selectOrdered(HostConfig config, java.util.function.Predicate<String> available,
+                                       java.util.function.BooleanSupplier cancelled) {
+        for (String address : config.localBaseUrls) {
+            if (cancelled.getAsBoolean()) return null;
+            boolean reachable = available.test(address);
+            if (cancelled.getAsBoolean()) return null;
+            if (reachable) return address;
+        }
+        return cancelled.getAsBoolean() ? null : config.publicBaseUrl;
     }
+
 }
