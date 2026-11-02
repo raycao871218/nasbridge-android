@@ -130,6 +130,24 @@ public final class NasBridgeClient {
         } catch (JSONException invalid) { throw new IOException("已读状态保存失败，请重试", invalid); }
     }
 
+    public JSONObject mihomoRequest(ConnectionFactory factory,String method,String path,JSONObject body) throws IOException {
+        if(!path.startsWith("api/mihomo/") || !("GET".equals(method)||"POST".equals(method)||"PUT".equals(method)||"DELETE".equals(method)))
+            throw new IllegalArgumentException("Unsupported Mihomo request");
+        try { return request(factory,path,5*1024*1024,method,body,30000); }
+        catch(JSONException e){throw new IOException("Mihomo 返回数据无效，请刷新确认状态",e);}
+    }
+    public JSONObject dailyTaskAction(ConnectionFactory factory, String action, String id) throws IOException {
+        try {
+            boolean start = "start".equals(action);
+            JSONObject body = start ? new JSONObject() : new JSONObject().put("action", action).put("id", id);
+            JSONObject result = request(factory, start ? "api/daily-tasks/run" : "api/daily-tasks/state",
+                65536, "POST", body, 30000);
+            if (!(start ? "accepted" : "ok").equals(result.optString("status")))
+                throw new IOException("服务未确认操作结果，请刷新记录确认状态");
+            return result;
+        } catch (JSONException invalid) { throw new IOException("操作结果无效，请刷新记录确认状态", invalid); }
+    }
+
     private JSONObject get(ConnectionFactory factory, String path, int limit) throws IOException, JSONException {
         return request(factory, path, limit, "GET", null, 8000);
     }
@@ -155,6 +173,19 @@ public final class NasBridgeClient {
             }
             int code = connection.getResponseCode();
             if (code == 401 || code == 403) throw new IOException("鸟巢需要登录或访问授权");
+            if ((code < 200 || code >= 300) && !"GET".equals(method) && (path.startsWith("api/daily-tasks/") || path.startsWith("api/mihomo/"))) {
+                String detail="操作返回 HTTP " + code;
+                try (InputStream error=connection.getErrorStream()) {
+                    if(error!=null) {
+                        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+                        byte[] buffer=new byte[1024];int count;
+                        while((count=error.read(buffer))!=-1 && bytes.size()+count<=65536)bytes.write(buffer,0,count);
+                        String message=new JSONObject(new String(bytes.toByteArray(),StandardCharsets.UTF_8)).optString("detail");
+                        if(!message.isEmpty())detail=message;
+                    }
+                } catch (IOException | JSONException ignored) { }
+                throw new IOException(detail);
+            }
             if (code < 200 || code >= 300) throw new IOException("鸟巢接口返回 HTTP " + code + "，请检查服务地址或登录状态");
             try (InputStream input = connection.getInputStream(); ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];

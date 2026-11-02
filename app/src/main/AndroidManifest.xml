@@ -36,6 +36,7 @@
         <activity android:name=".RhinoActivity" android:exported="false" />
         <activity android:name=".VideoActivity" android:exported="false" android:configChanges="orientation|screenSize" />
         <activity android:name=".ArticleActivity" android:exported="false" />
+        <activity android:name=".MihomoActivity" android:exported="false" />
         <activity android:name=".ServiceModuleActivity" android:exported="false" />
         <activity android:name=".NetworkSettingsActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">

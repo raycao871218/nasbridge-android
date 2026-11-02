@@ -19,6 +19,6 @@
             android:text="@string/module_go_config" android:textColor="@color/brand_mint" style="?android:attr/borderlessButtonStyle" />
         <LinearLayout android:id="@+id/overview_content" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp"
-            android:text="@string/module_readonly" android:textColor="@color/text_secondary" android:textSize="12sp" />
+            android:id="@+id/module_notice" android:text="@string/module_readonly" android:textColor="@color/text_secondary" android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>

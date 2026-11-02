@@ -12,7 +12,7 @@ android {
         targetSdk 34
         versionCode 38
         versionName '0.16.9'
-        testInstrumentationRunner (project.hasProperty('routingTests') ? 'com.nas.dashboard.RoutingPriorityInstrumentation' : project.hasProperty('taskTests') ? 'com.nas.dashboard.DailyTasksInstrumentation' : project.hasProperty('setupTests') ? 'com.nas.dashboard.SetupInstrumentation' : project.hasProperty('presenceTests') ? 'com.nas.dashboard.PresenceInstrumentation' : project.hasProperty('smsTests') ? 'com.nas.dashboard.SmsInstrumentation' : project.hasProperty('videoTests') ? 'com.nas.dashboard.VideoInstrumentation' : 'com.nas.dashboard.RouterInstrumentation')
+        testInstrumentationRunner (project.hasProperty('mihomoTests') ? 'com.nas.dashboard.MihomoInstrumentation' : project.hasProperty('routingTests') ? 'com.nas.dashboard.RoutingPriorityInstrumentation' : project.hasProperty('taskTests') ? 'com.nas.dashboard.DailyTasksInstrumentation' : project.hasProperty('setupTests') ? 'com.nas.dashboard.SetupInstrumentation' : project.hasProperty('presenceTests') ? 'com.nas.dashboard.PresenceInstrumentation' : project.hasProperty('smsTests') ? 'com.nas.dashboard.SmsInstrumentation' : project.hasProperty('videoTests') ? 'com.nas.dashboard.VideoInstrumentation' : 'com.nas.dashboard.RouterInstrumentation')
     }
 
     buildTypes { debug { if (project.hasProperty('uiPreview')) applicationIdSuffix '.preview' } }

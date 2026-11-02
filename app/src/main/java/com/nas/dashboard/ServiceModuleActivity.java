@@ -21,12 +21,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-/** Native read-only modules matching the existing NASBridge web navigation. */
+/** Native service modules matching the existing NASBridge web navigation. */
 public class ServiceModuleActivity extends Activity {
     private String module;
     private DailyTasksView dailyTasks;
     private final android.os.Handler refreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private boolean visible;
+    private boolean actionPending;
+    private final ExecutorService actionWorker = Executors.newSingleThreadExecutor();
     private boolean refreshingTasks;
     private final Runnable refreshTasks = () -> {
         if (visible && "tasks".equals(module)) {
@@ -49,11 +51,13 @@ public class ServiceModuleActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        if("mihomo".equals(getIntent().getStringExtra("module"))) {
+            startActivity(new Intent(this,MihomoActivity.class));finish();return;
+        }
         setContentView(R.layout.activity_service_module);
         module = getIntent().getStringExtra("module");
         int title;
-        if ("mihomo".equals(module)) title = R.string.module_mihomo_title;
-        else if ("tasks".equals(module)) title = R.string.module_tasks_title;
+        if ("tasks".equals(module)) title = R.string.module_tasks_title;
         else if ("certificates".equals(module)) title = R.string.module_certificates_title;
         else if ("aliyun".equals(module)) title = R.string.module_aliyun_title;
         else if ("zerotier".equals(module)) title = R.string.module_zerotier_title;
@@ -66,6 +70,7 @@ public class ServiceModuleActivity extends Activity {
         if ("tasks".equals(module)) {
             dailyTasks = new DailyTasksView(this, content);
             dailyTasks.restore(state);
+            dailyTasks.setActions(this::performTaskAction);
             route.setVisibility(View.GONE);
         }
         monitor = ((DashboardApplication) getApplication()).monitor();
@@ -108,7 +113,7 @@ public class ServiceModuleActivity extends Activity {
                 NasBridgeClient.Overview overview = null;
                 JSONObject data = null;
                 String partialError = null;
-                if ("mihomo".equals(module) || "certificates".equals(module)) overview = next.load(factory);
+                if ("certificates".equals(module)) overview = next.load(factory);
                 if ("tasks".equals(module)) data = next.getJson(factory, "api/daily-tasks");
                 if ("aliyun".equals(module)) data = next.getJson(factory, "api/aliyun/status");
                 if ("zerotier".equals(module)) data = next.getJson(factory, "api/zerotier/networks");
@@ -143,20 +148,14 @@ public class ServiceModuleActivity extends Activity {
     private void render(NasBridgeClient.Overview overview, JSONObject data, String warning) {
         status.setText(warning == null ? "数据已更新" : "部分数据未能加载");
         status.setTextColor(Color.parseColor(warning == null ? "#52745F" : "#916524"));
-        if ("mihomo".equals(module)) {
-            metrics.setText("Mihomo：" + state(overview.mihomoStatus) + "\n活动连接：" + overview.connections
-                + "（代理 " + overview.proxiedConnections + " / 直连 " + overview.directConnections + "）"
-                + "\n累计上传：" + bytes(overview.uploadBytes) + "\n累计下载：" + bytes(overview.downloadBytes));
-        } else if ("tasks".equals(module)) {
+        if ("tasks".equals(module)) {
             JSONObject summary = data.optJSONObject("metrics");
             if (summary == null) summary = new JSONObject();
-            metrics.setText("今日运行  " + summary.optInt("today_runs") + " 次    ·    总计  " + summary.optInt("total_runs") + " 次"
-                + "\n成功  " + summary.optInt("success_runs") + "    /    失败  " + summary.optInt("failed_runs")
-                + "\n最近概要  " + summary.optInt("summary_count") + " 篇");
-            dailyTasks.render(data);
-            boolean running = DailyTasksView.hasRunning(data);
+            metrics.setText("今日运行 "+summary.optInt("today_runs")+" 次 · 概要 "+summary.optInt("summary_count")+" 篇");
+            dailyTasks.accept(data);
+            boolean running = DailyTasksView.needsRefresh(data);
             status.setText("更新于 " + DailyTaskFormat.time(data.optString("read_at"))
-                + (running ? " · 运行中，每 15 秒刷新" : " · 可手动刷新"));
+                + (running ? " · 自动刷新" : ""));
             refreshingTasks = false;
             scheduleTaskRefresh(running);
         } else if ("certificates".equals(module)) {
@@ -249,6 +248,23 @@ public class ServiceModuleActivity extends Activity {
     private void cancel() { generation++; if (client != null) client.cancel(); if (task != null) task.cancel(true); client = null; task = null; }
     @Override protected void onStart() { super.onStart(); visible = true; if (monitor != null) monitor.addListener(listener); }
     @Override protected void onStop() { visible = false; refreshHandler.removeCallbacks(refreshTasks); if (monitor != null) monitor.removeListener(listener); cancel(); loadedRoute = null; super.onStop(); }
+    private void performTaskAction(String action,String id) {
+        if(actionPending)return;
+        HostRouter.Selection selection=monitor.routeForRequests();
+        if(selection==null){dailyTasks.setBusy(false,"当前没有可用地址，请等待网络连接后再操作。");return;}
+        actionPending=true;dailyTasks.setBusy(true,"正在提交操作…");
+        actionWorker.submit(()->{
+            NasBridgeClient api=new NasBridgeClient();String message;
+            try {message=api.dailyTaskAction(selection::openConnection,action,id).optString("message","操作已保存");}
+            catch(IOException error){message=error.getMessage()+"；请刷新记录确认状态后再操作。";}
+            String feedback=message;
+            runOnUiThread(()->{
+                if(isDestroyed())return;
+                actionPending=false;dailyTasks.setBusy(false,feedback);
+                if(visible){loadedRoute=null;connectionChanged(monitor.current());}
+            });
+        });
+    }
     private void scheduleTaskRefresh(boolean again) {
         refreshHandler.removeCallbacks(refreshTasks);
         if (visible && again) refreshHandler.postDelayed(refreshTasks, 15000);
@@ -257,5 +273,5 @@ public class ServiceModuleActivity extends Activity {
         if (dailyTasks != null) dailyTasks.save(state);
         super.onSaveInstanceState(state);
     }
-    @Override protected void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
+    @Override protected void onDestroy() { worker.shutdownNow(); actionWorker.shutdown(); super.onDestroy(); }
 }
