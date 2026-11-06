@@ -34,6 +34,18 @@ public class DailyTaskActionTest {
             assertEquals(action,body.getString("action"));assertEquals("概要.md",body.getString("id"));
         }
     }
+    @Test public void sendsSelectedDateToHistoricalRunAndStatusEndpoints() throws Exception {
+        Connection start=new Connection();
+        NasBridgeClient client=new NasBridgeClient();
+        client.dailyTaskAction(path->{assertEquals("api/daily-tasks/run",path);return start;},"start","2026-11-05");
+        assertEquals("2026-11-05",new JSONObject(start.sent.toString("UTF-8")).getString("date"));
+        Connection status=new Connection();
+        status.code=200;
+        status.response="{\"archived_count\":2}";
+        assertEquals(2,client.dailyTaskDay(path->{
+            assertEquals("api/daily-tasks/day?date=2026-11-05",path);return status;
+        },"2026-11-05").getInt("archived_count"));
+    }
     @Test public void refusesConflictAndUnconfirmedResultsWithoutRetry() throws Exception {
         for(int code:new int[]{409,503,200}) {
             Connection c=new Connection();c.code=code;c.response="{\"status\":\"unknown\"}";

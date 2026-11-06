@@ -71,6 +71,7 @@ public class ServiceModuleActivity extends Activity {
             dailyTasks = new DailyTasksView(this, content);
             dailyTasks.restore(state);
             dailyTasks.setActions(this::performTaskAction);
+            dailyTasks.setDayChanged(refreshTasks);
             route.setVisibility(View.GONE);
         }
         monitor = ((DashboardApplication) getApplication()).monitor();
@@ -106,6 +107,7 @@ public class ServiceModuleActivity extends Activity {
         findViewById(R.id.module_go_config).setVisibility(View.GONE);
         NasBridgeClient next = new NasBridgeClient();
         client = next;
+        String selectedDay = dailyTasks == null ? "" : dailyTasks.selectedDay();
         task = worker.submit(() -> {
             if (request != generation) return;
             try {
@@ -114,7 +116,14 @@ public class ServiceModuleActivity extends Activity {
                 JSONObject data = null;
                 String partialError = null;
                 if ("certificates".equals(module)) overview = next.load(factory);
-                if ("tasks".equals(module)) data = next.getJson(factory, "api/daily-tasks");
+                if ("tasks".equals(module)) {
+                    data = next.getJson(factory, "api/daily-tasks");
+                    String day = DailyTasksView.taskDay(data.optJSONObject("manual_control"), selectedDay);
+                    if (!day.isEmpty()) {
+                        try { data.put("selected_day", next.dailyTaskDay(factory, day)); }
+                        catch (IOException error) { data.put("selected_day", new JSONObject().put("date",day).put("unavailable",true)); }
+                    }
+                }
                 if ("aliyun".equals(module)) data = next.getJson(factory, "api/aliyun/status");
                 if ("zerotier".equals(module)) data = next.getJson(factory, "api/zerotier/networks");
                 if ("certificates".equals(module)) {
@@ -129,7 +138,7 @@ public class ServiceModuleActivity extends Activity {
                     if (request != generation) return;
                     render(snapshot, json, warning);
                 });
-            } catch (IOException error) {
+            } catch (IOException | org.json.JSONException error) {
                 runOnUiThread(() -> {
                     if (request != generation) return;
                     status.setText("读取失败");

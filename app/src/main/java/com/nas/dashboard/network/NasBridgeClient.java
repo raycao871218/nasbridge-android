@@ -136,10 +136,15 @@ public final class NasBridgeClient {
         try { return request(factory,path,5*1024*1024,method,body,30000); }
         catch(JSONException e){throw new IOException("Mihomo 返回数据无效，请刷新确认状态",e);}
     }
+    public JSONObject dailyTaskDay(ConnectionFactory factory, String day) throws IOException {
+        return getJson(factory, "api/daily-tasks/day?date=" + java.net.URLEncoder.encode(day, "UTF-8"));
+    }
+
     public JSONObject dailyTaskAction(ConnectionFactory factory, String action, String id) throws IOException {
         try {
             boolean start = "start".equals(action);
             JSONObject body = start ? new JSONObject() : new JSONObject().put("action", action).put("id", id);
+            if (start && !id.isEmpty()) body.put("date", id);
             JSONObject result = request(factory, start ? "api/daily-tasks/run" : "api/daily-tasks/state",
                 65536, "POST", body, 30000);
             if (!(start ? "accepted" : "ok").equals(result.optString("status")))

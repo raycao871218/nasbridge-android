@@ -1,12 +1,15 @@
 package com.nas.dashboard;
 
 import android.app.Activity;
+import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.*;
 import org.json.*;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 /** Compact task summary with optional execution details. */
@@ -18,11 +21,21 @@ final class DailyTasksView {
     private JSONObject snapshot;
     interface Actions { void perform(String action, String id); }
     private Actions actions;
+    private Runnable dayChanged;
+    private String selectedDay = "";
     private boolean busy;
     private boolean controlStale;
     void accept(JSONObject data) { controlStale=false; render(data); }
     private String feedback = "";
     void setActions(Actions value) { actions=value; }
+    void setDayChanged(Runnable callback) { dayChanged=callback; }
+    String selectedDay() { return selectedDay; }
+    static String taskDay(JSONObject control, String selected) {
+        if (control == null) return "";
+        String today=control.optString("today");
+        return !selected.isEmpty() && selected.compareTo(control.optString("first_date"))>=0
+            && selected.compareTo(today)<=0 ? selected : today;
+    }
     void setBusy(boolean value,String message) { busy=value; controlStale=true; feedback=message; if(snapshot!=null)render(snapshot); }
     static boolean needsRefresh(JSONObject data) {
         JSONObject c=data.optJSONObject("manual_control");
@@ -35,12 +48,17 @@ final class DailyTasksView {
         parent.getChildAt(parent.getChildCount()-1).setEnabled(enabled && !busy && !controlStale && actions!=null);
     }
     DailyTasksView(Activity activity, LinearLayout host) { this.activity=activity; this.host=host; }
-    void save(Bundle state) { state.putStringArrayList("task_expanded", new ArrayList<>(expanded)); state.putBoolean("task_hidden",showHidden); }
+    void save(Bundle state) {
+        state.putStringArrayList("task_expanded", new ArrayList<>(expanded));
+        state.putBoolean("task_hidden",showHidden);
+        state.putString("task_day",selectedDay);
+    }
     void restore(Bundle state) {
         if (state == null) return;
         ArrayList<String> saved=state.getStringArrayList("task_expanded");
         if(saved!=null) expanded.addAll(saved);
         showHidden=state.getBoolean("task_hidden");
+        selectedDay=state.getString("task_day","");
     }
     static boolean hasRunning(JSONObject data) {
         JSONArray runs=data.optJSONArray("runs");
@@ -98,8 +116,31 @@ final class DailyTasksView {
         JSONObject c=data.optJSONObject("manual_control");if(c==null)c=new JSONObject();
         LinearLayout box=card();text(box,"每日任务",20,"#3B3A49");
         if(!c.optBoolean("can_trigger") && !c.optBoolean("running"))text(box,c.optString("message","暂时无法确认执行状态"),14,"#514D58");
-        actionButton(box,busy?"正在处理…":c.optBoolean("running")?"执行中…":"手动执行","start","",
-            "ok".equals(data.optString("status")) && c.optBoolean("can_trigger"));
+        String day=taskDay(c,selectedDay);
+        boolean historical=!day.equals(c.optString("today"));
+        if (!day.isEmpty()) {
+            String first=c.optString("first_date"), today=c.optString("today");
+            button(box,"视频日期  "+day+"  ›",()->pickDay(first,today,day));
+            JSONObject result=data.optJSONObject("selected_day");
+            String label="正在查询所选日期…";
+            if (result!=null && day.equals(result.optString("date"))) {
+                if (result.optBoolean("unavailable")) label="暂时无法确认这一天的抓取记录，请刷新重试";
+                else {
+                    int count=result.optInt("archived_count");
+                    JSONObject latest=result.optJSONObject("latest_run");
+                    label=count>0?"已成功归档 "+count+" 部视频":
+                        latest!=null && latest.optInt("matched_count",-1)==0?"已检查，当天没有发现公开视频":"尚无已归档视频";
+                    label+=latest==null?" · 无运行记录":" · 最近任务："+DailyTaskFormat.state(latest.optString("status"));
+                }
+            }
+            text(box,label,14,"#514D58");
+        }
+        if (historical && !c.optBoolean("backfill")) text(box,"执行端尚未启用往日补抓",14,"#514D58");
+        else if (historical && !c.optBoolean("can_backfill") && !c.optBoolean("running"))
+            text(box,"自动重试正在执行，请稍后补抓",14,"#514D58");
+        actionButton(box,busy?"正在处理…":c.optBoolean("running")?"执行中…":historical?"补抓所选日期":"手动执行",
+            "start",historical?day:"", "ok".equals(data.optString("status")) && c.optBoolean("can_trigger")
+                && (!historical || (c.optBoolean("backfill") && c.optBoolean("can_backfill"))));
         if(!feedback.isEmpty())text(box,feedback,14,"#4D669D");
         JSONObject r=c.optJSONObject("retry");if(r==null)r=new JSONObject();
         String title="自动重试状态待确认",detail="暂时无法读取执行端状态，请稍后刷新。",timing="";
@@ -131,6 +172,18 @@ final class DailyTasksView {
             text(box,c.isNull("shutdown_protected")?"关机保护状态待确认":c.optBoolean("shutdown_protected")?
                 "任务执行或等待重试期间暂停自动关机。":"自动关机遵循原有时段及空闲判断。",13,"#706B75");
         }
+    }
+    private void pickDay(String first, String today, String selected) {
+        LocalDate initial=LocalDate.parse(selected);
+        DatePickerDialog dialog=new DatePickerDialog(activity,(view,year,month,day)->{
+            selectedDay=LocalDate.of(year,month+1,day).toString();
+            render(snapshot);
+            if (dayChanged!=null) dayChanged.run();
+        },initial.getYear(),initial.getMonthValue()-1,initial.getDayOfMonth());
+        ZoneId local=ZoneId.systemDefault();
+        dialog.getDatePicker().setMinDate(LocalDate.parse(first).atStartOfDay(local).toInstant().toEpochMilli());
+        dialog.getDatePicker().setMaxDate(LocalDate.parse(today).atStartOfDay(local).toInstant().toEpochMilli());
+        dialog.show();
     }
     private void toggle(String key) {
         if(!expanded.remove(key))expanded.add(key);
