@@ -153,6 +153,30 @@ public final class NasBridgeClient {
         } catch (JSONException invalid) { throw new IOException("操作结果无效，请刷新记录确认状态", invalid); }
     }
 
+    public JSONObject codexAccounts(ConnectionFactory factory, String target, String expected)
+            throws IOException {
+        try {
+            JSONObject body = target == null ? null : new JSONObject().put("target", target).put("expected_current", expected);
+            JSONObject data = request(factory, target == null ? "api/codex-accounts" : "api/codex-accounts/switch",
+                65536, target == null ? "GET" : "POST", body, 42000);
+            if (data.getString("current").isEmpty() || data.optJSONArray("accounts") == null
+                    || (target != null && (!target.equals(data.getString("current")) || !(data.get("changed") instanceof Boolean))))
+                throw new JSONException("Unconfirmed account");
+            return data;
+        } catch (JSONException invalid) {
+            throw new IOException("鸟巢未确认 Codex 账号状态", invalid);
+        }
+    }
+
+    public JSONObject developerPower(ConnectionFactory factory, boolean submit) throws IOException {
+        try {
+            return request(factory, "api/codex-accounts/power", 8192,
+                submit ? "POST" : "GET", submit ? new JSONObject() : null, 30000);
+        } catch (JSONException invalid) {
+            throw new IOException("无法确认开发机的关机状态", invalid);
+        }
+    }
+
     private JSONObject get(ConnectionFactory factory, String path, int limit) throws IOException, JSONException {
         return request(factory, path, limit, "GET", null, 8000);
     }
@@ -177,8 +201,10 @@ public final class NasBridgeClient {
                 try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes); }
             }
             int code = connection.getResponseCode();
-            if (code == 401 || code == 403) throw new IOException("鸟巢需要登录或访问授权");
-            if ((code < 200 || code >= 300) && !"GET".equals(method) && (path.startsWith("api/daily-tasks/") || path.startsWith("api/mihomo/"))) {
+            boolean codex = path.startsWith("api/codex-accounts");
+            if ((code == 401 || code == 403) && !codex) throw new IOException("鸟巢需要登录或访问授权");
+            if ((code < 200 || code >= 300) && (codex || (!"GET".equals(method)
+                    && (path.startsWith("api/daily-tasks/") || path.startsWith("api/mihomo/"))))) {
                 String detail="操作返回 HTTP " + code;
                 try (InputStream error=connection.getErrorStream()) {
                     if(error!=null) {

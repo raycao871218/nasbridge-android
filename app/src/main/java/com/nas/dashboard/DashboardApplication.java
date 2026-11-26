@@ -16,6 +16,7 @@ public class DashboardApplication extends Application {
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override public void onActivityResumed(Activity activity) {
                 PresenceService.resumeIfEnabled(activity);
+                SmsNotificationService.resumeIfEnabled(activity);
                 // Recheck after screen-off/process recreation instead of trusting a stale route.
                 monitor.refreshRouting();
             }

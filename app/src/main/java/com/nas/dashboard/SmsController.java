@@ -49,6 +49,9 @@ final class SmsController {
         View back=findViewById(R.id.sms_back);if(back!=null)back.setOnClickListener(v->activity.finish());
         findViewById(R.id.sms_mark_all_read).setOnClickListener(v->markAllRead());
         findViewById(R.id.sms_refresh).setOnClickListener(v->load(true));
+        View notificationSettings=findViewById(R.id.sms_notification_settings);
+        if(notificationSettings!=null)notificationSettings.setOnClickListener(v->
+            activity.startActivity(new android.content.Intent(activity,SmsNotificationSettingsActivity.class)));
         findViewById(R.id.sms_search).setOnClickListener(v->search());
         query.setOnEditorActionListener((v,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH){search();return true;}return false;});
         list.setOnItemClickListener((parent,view,position,id)->{

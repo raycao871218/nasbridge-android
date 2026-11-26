@@ -35,6 +35,8 @@ public class MainActivity extends Activity {
         bindModule(R.id.module_certificates, "certificates");
         bindModule(R.id.module_aliyun, "aliyun");
         bindModule(R.id.module_zerotier, "zerotier");
+        bindModule(R.id.module_codex, "codex");
+        bindModule(R.id.module_devices, "devices");
         selectTab(savedInstanceState == null ? 0 : savedInstanceState.getInt("selected_tab", 0));
     }
 

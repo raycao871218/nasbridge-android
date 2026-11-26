@@ -130,4 +130,9 @@
     <string name="scan_setup">扫码导入配置</string>
     <string name="scan_setup_hint">扫描 NAS 后台二维码，一次导入网络、HA 和围栏配置。</string>
     <string name="sms_mark_all_read">全部已读</string>
+    <string name="module_codex_title">Codex 账号</string>
+    <string name="module_codex_description">查看和切换 Ubuntu 开发服务器的 CLI 登录</string>
+    <string name="module_devices_title">设备管理</string>
+    <string name="module_devices_description">查看开发机在线状态和手动关机</string>
+    <string name="sms_quick_fill_description">识别当前聚焦的验证码输入框，并显示收到的验证码。仅在你点击悬浮卡片的“填入”后，将验证码写入该输入框。</string>
 </resources>

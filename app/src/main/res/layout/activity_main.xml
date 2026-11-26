@@ -93,6 +93,28 @@
                     </LinearLayout>
                     <TextView android:layout_width="24dp" android:layout_height="wrap_content" android:text="@string/module_chevron" android:textColor="@color/text_secondary" android:textSize="24sp" android:gravity="center" android:importantForAccessibility="no" />
                 </LinearLayout>
+                <LinearLayout android:id="@+id/module_codex" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="88dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="16dp"
+                    android:layout_marginTop="12dp" android:background="@drawable/card" android:clickable="true" android:focusable="true"
+                    android:foreground="?android:attr/selectableItemBackground">
+                    <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/ic_tasks" android:importantForAccessibility="no" />
+                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/module_codex_title" android:textColor="@color/text_primary" android:textSize="17sp" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/module_codex_description" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="24dp" android:layout_height="wrap_content" android:text="@string/module_chevron" android:textColor="@color/text_secondary" android:textSize="24sp" android:gravity="center" android:importantForAccessibility="no" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/module_devices" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="88dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="16dp"
+                    android:layout_marginTop="12dp" android:background="@drawable/card" android:clickable="true" android:focusable="true"
+                    android:foreground="?android:attr/selectableItemBackground">
+                    <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/ic_network" android:importantForAccessibility="no" />
+                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/module_devices_title" android:textColor="@color/text_primary" android:textSize="17sp" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/module_devices_description" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="24dp" android:layout_height="wrap_content" android:text="@string/module_chevron" android:textColor="@color/text_secondary" android:textSize="24sp" android:gravity="center" android:importantForAccessibility="no" />
+                </LinearLayout>
             </LinearLayout>
         </ScrollView>
         <ScrollView android:id="@+id/settings_panel" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
