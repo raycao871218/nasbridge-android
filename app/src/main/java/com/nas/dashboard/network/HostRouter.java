@@ -1,37 +1,22 @@
 package com.nas.dashboard.network;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
-/** Foreground network routing. All state changes run on main; ping runs on a worker. */
+/** Foreground network routing. All state changes run on main; ordered HTTP probes run on a worker. */
 public final class HostRouter {
     public interface Listener { void onSelection(Selection selection, boolean diagnostic); }
 
@@ -67,18 +52,16 @@ public final class HostRouter {
         }
     }
 
-    private final Context context;
+
     private final ConnectivityManager connectivity;
     private final HostSettings settings;
     private final Listener listener;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final ThreadPoolExecutor dnsWorker = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
-        new ArrayBlockingQueue<>(1));
-    private volatile Future<InetAddress[]> activeDns;
     private volatile boolean started;
     private volatile int generation;
-    private volatile Process activePing;
+
+    private volatile EndpointProbe activeRouteProbe;
     private volatile Selection selection = new Selection("", "尚未配置接口地址", false, false, null);
     private String lastEnvironment;
     private boolean diagnostic = true;
@@ -91,15 +74,10 @@ public final class HostRouter {
     };
 
     public HostRouter(Context context, Listener listener) {
-        this.context = context.getApplicationContext();
+
         this.connectivity = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         this.settings = new HostSettings(context);
         this.listener = listener;
-    }
-
-    public static Selection publicRoute(HostConfig config) {
-        return config == null ? null : new Selection(config.publicBaseUrl,
-            "尚未检测 Host，数据请求暂用公网 Host2", false, false, null);
     }
 
     public Selection current() { return selection; }
@@ -122,14 +100,14 @@ public final class HostRouter {
         generation++;
         connectivity.unregisterNetworkCallback(callback);
         main.removeCallbacks(networkRefresh);
-        cancelPing();
+        cancelRouteProbe();
 
     }
 
     public void close() {
         stop();
         worker.shutdownNow();
-        dnsWorker.shutdownNow();
+
     }
 
     private void networkChanged() {
@@ -170,10 +148,10 @@ public final class HostRouter {
 
     public void invalidate() {
         generation++;
-        cancelPing();
+        cancelRouteProbe();
     }
 
-    @SuppressWarnings("deprecation") // WifiManager supports SSID reads consistently on API 23+.
+
     public void refresh() { refresh(true); }
 
     /** Initial/configuration routing is automatic, without an HTTP diagnostic. */
@@ -183,72 +161,42 @@ public final class HostRouter {
         this.diagnostic = diagnostic;
         if (!started) return;
         int request = ++generation;
-        cancelPing();
+        cancelRouteProbe();
         HostConfig config = settings.load();
         if (config == null) {
-            publish(new Selection("", "请先设置家庭 Wi-Fi、Host 和 Host2", false, false, null));
+            publish(new Selection("", "请先设置内网地址和公网地址", false, false, null));
             return;
         }
-        Network wifiNetwork = null;
-        for (Network network : connectivity.getAllNetworks()) {
-            NetworkCapabilities caps = connectivity.getNetworkCapabilities(network);
-            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-                    && !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                wifiNetwork = network;
-                break;
-            }
-        }
-        if (wifiNetwork == null) {
-            fallback(config, "未连接 Wi-Fi，使用公网 Host2");
-            return;
-        }
-        if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            fallback(config, "无法读取 Wi-Fi 名称：请授权精确定位；当前使用 Host2");
-            return;
-        }
-        LocationManager location = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-        boolean locationEnabled = Build.VERSION.SDK_INT >= 28 ? location.isLocationEnabled()
-            : location.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                || location.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-        if (!locationEnabled) {
-            fallback(config, "系统定位已关闭，无法识别 Wi-Fi；当前使用 Host2");
-            return;
-        }
-        WifiManager wifi = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        WifiInfo info = wifi.getConnectionInfo();
-        String ssid = info == null ? "" : HostConfig.normalizeSsid(info.getSSID());
-        if (ssid.isEmpty() || WifiManager.UNKNOWN_SSID.equals(ssid)) {
-            fallback(config, "Wi-Fi 名称不可用，使用公网 Host2");
-            return;
-        }
-        if (!config.matches(ssid)) {
-            fallback(config, "当前 Wi-Fi：" + ssid + "，非家庭网络，使用 Host2");
-            return;
-        }
-        LinkProperties links = connectivity.getLinkProperties(wifiNetwork);
-        String iface = links == null ? null : links.getInterfaceName();
-        if (iface == null) {
-            fallback(config, "Wi-Fi 接口尚未就绪，使用 Host2");
-            return;
-        }
-        Network probeNetwork = wifiNetwork;
-        publish(new Selection(config.publicBaseUrl, "已连接 " + ssid + "，正在 ping 局域网 Host…", false, true, null));
+        publish(new Selection(config.localBaseUrl, "正在按优先级检测内网地址…", false, true, null));
         worker.execute(() -> {
             if (!started || request != generation) return;
-            boolean reachable = ping(config.pingHost(), iface, probeNetwork);
+            String url = HostPolicy.selectOrdered(config, address -> {
+                main.post(() -> {
+                    if (started && request == generation)
+                        publish(new Selection(address, "正在检测内网地址 "
+                            + (config.localBaseUrls.indexOf(address) + 1) + "/" + config.localBaseUrls.size(),
+                            false, true, null));
+                });
+                if (!started || request != generation) return false;
+                EndpointProbe probe = new EndpointProbe();
+                activeRouteProbe = probe;
+                try {
+                    if (!started || request != generation) return false;
+                    return probe.check(() -> new Selection(address, "", true, false, null)
+                        .openConnection("")).reachable;
+                } finally {
+                    if (activeRouteProbe == probe) activeRouteProbe = null;
+                }
+            }, () -> !started || request != generation);
             main.post(() -> {
-                if (!started || request != generation) return;
-                String url = HostPolicy.select(config, true, ssid, reachable);
+                if (!started || request != generation || url == null) return;
+                boolean reachable = config.localBaseUrls.contains(url);
                 publish(new Selection(url, reachable
-                    ? "家庭 Wi-Fi：" + ssid + " · ping 成功，使用局域网 Host"
-                    : "家庭 Wi-Fi：" + ssid + " · ping 失败或超时，使用 Host2",
-                    reachable, false, reachable ? probeNetwork : null));
+                    ? "内网地址 " + (config.localBaseUrls.indexOf(url) + 1) + " 可达，使用该地址"
+                    : "所有内网地址均不可达，使用公网 Host2",
+                    reachable, false, null));
             });
         });
-    }
-
-    private void fallback(HostConfig config, String reason) {
-        publish(new Selection(config.publicBaseUrl, reason, false, false, null));
     }
 
     private void publish(Selection value) {
@@ -256,51 +204,8 @@ public final class HostRouter {
         listener.onSelection(value, diagnostic);
     }
 
-    private void cancelPing() {
-        Future<InetAddress[]> dns = activeDns;
-        if (dns != null) {
-            dns.cancel(true);
-            dnsWorker.remove((Runnable) dns);
-        }
-        Process process = activePing;
-        if (process != null) process.destroy();
-    }
-
-    private boolean ping(String host, String iface, Network network) {
-        Process process = null;
-        Future<InetAddress[]> dns = null;
-        long deadline = android.os.SystemClock.elapsedRealtime() + 4000;
-        try {
-            // Resolve names on the chosen Wi-Fi, even when cellular/VPN is the default network.
-            dns = dnsWorker.submit(() -> network.getAllByName(host));
-            activeDns = dns;
-            InetAddress[] addresses = dns.get(1500, TimeUnit.MILLISECONDS);
-            if (addresses.length == 0) return false;
-            String address = addresses[0].getHostAddress();
-            String binary = address.contains(":") ? "/system/bin/ping6" : "/system/bin/ping";
-            process = new ProcessBuilder(binary, "-I", iface, "-c", "1", "-W", "2", address)
-                .redirectErrorStream(true).start();
-            activePing = process;
-            if (Build.VERSION.SDK_INT >= 26) {
-                return process.waitFor(Math.max(1, deadline - android.os.SystemClock.elapsedRealtime()), TimeUnit.MILLISECONDS) && process.exitValue() == 0;
-            }
-            while (android.os.SystemClock.elapsedRealtime() < deadline) {
-                try { return process.exitValue() == 0; }
-                catch (IllegalThreadStateException running) { Thread.sleep(100); }
-            }
-            return false;
-        } catch (IOException | InterruptedException | ExecutionException | TimeoutException
-                 | RejectedExecutionException | CancellationException exception) {
-            if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
-            return false;
-        } finally {
-            if (dns != null) {
-                dns.cancel(true);
-                dnsWorker.remove((Runnable) dns);
-            }
-            if (activeDns == dns) activeDns = null;
-            if (process != null) process.destroy();
-            if (activePing == process) activePing = null;
-        }
+    private void cancelRouteProbe() {
+        EndpointProbe probe = activeRouteProbe;
+        if (probe != null) probe.cancel();
     }
 }

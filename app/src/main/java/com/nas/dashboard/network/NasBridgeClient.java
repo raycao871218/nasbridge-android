@@ -101,10 +101,10 @@ public final class NasBridgeClient {
     public Overview load(ConnectionFactory factory) throws IOException {
         try {
             JSONObject health = get(factory, "api/health", 65536);
-            if (!"ok".equals(health.optString("status"))) throw new IOException("NASBridge 健康检查未通过");
+            if (!"ok".equals(health.optString("status"))) throw new IOException("鸟巢健康检查未通过");
             return new Overview(get(factory, "api/overview", 2 * 1024 * 1024));
         } catch (JSONException invalid) {
-            throw new IOException("该地址未返回有效的 NASBridge 数据，请检查 Host 和服务路径", invalid);
+            throw new IOException("该地址未返回有效的 鸟巢数据，请检查 Host 和服务路径", invalid);
         }
     }
 
@@ -128,6 +128,53 @@ public final class NasBridgeClient {
             JSONObject result = request(factory, "api/daily-tasks/state", 65536, "POST", body, 8000);
             if (!"ok".equals(result.optString("status"))) throw new IOException("服务未确认已读状态，请重试");
         } catch (JSONException invalid) { throw new IOException("已读状态保存失败，请重试", invalid); }
+    }
+
+    public JSONObject mihomoRequest(ConnectionFactory factory,String method,String path,JSONObject body) throws IOException {
+        if(!path.startsWith("api/mihomo/") || !("GET".equals(method)||"POST".equals(method)||"PUT".equals(method)||"DELETE".equals(method)))
+            throw new IllegalArgumentException("Unsupported Mihomo request");
+        try { return request(factory,path,5*1024*1024,method,body,30000); }
+        catch(JSONException e){throw new IOException("Mihomo 返回数据无效，请刷新确认状态",e);}
+    }
+    public JSONObject dailyTaskDay(ConnectionFactory factory, String day) throws IOException {
+        return getJson(factory, "api/daily-tasks/day?date=" + java.net.URLEncoder.encode(day, "UTF-8"));
+    }
+
+    public JSONObject dailyTaskAction(ConnectionFactory factory, String action, String id) throws IOException {
+        try {
+            boolean start = "start".equals(action);
+            JSONObject body = start ? new JSONObject() : new JSONObject().put("action", action).put("id", id);
+            if (start && !id.isEmpty()) body.put("date", id);
+            JSONObject result = request(factory, start ? "api/daily-tasks/run" : "api/daily-tasks/state",
+                65536, "POST", body, 30000);
+            if (!(start ? "accepted" : "ok").equals(result.optString("status")))
+                throw new IOException("服务未确认操作结果，请刷新记录确认状态");
+            return result;
+        } catch (JSONException invalid) { throw new IOException("操作结果无效，请刷新记录确认状态", invalid); }
+    }
+
+    public JSONObject codexAccounts(ConnectionFactory factory, String target, String expected)
+            throws IOException {
+        try {
+            JSONObject body = target == null ? null : new JSONObject().put("target", target).put("expected_current", expected);
+            JSONObject data = request(factory, target == null ? "api/codex-accounts" : "api/codex-accounts/switch",
+                65536, target == null ? "GET" : "POST", body, 42000);
+            if (data.getString("current").isEmpty() || data.optJSONArray("accounts") == null
+                    || (target != null && (!target.equals(data.getString("current")) || !(data.get("changed") instanceof Boolean))))
+                throw new JSONException("Unconfirmed account");
+            return data;
+        } catch (JSONException invalid) {
+            throw new IOException("鸟巢未确认 Codex 账号状态", invalid);
+        }
+    }
+
+    public JSONObject developerPower(ConnectionFactory factory, boolean submit) throws IOException {
+        try {
+            return request(factory, "api/codex-accounts/power", 8192,
+                submit ? "POST" : "GET", submit ? new JSONObject() : null, 30000);
+        } catch (JSONException invalid) {
+            throw new IOException("无法确认开发机的关机状态", invalid);
+        }
     }
 
     private JSONObject get(ConnectionFactory factory, String path, int limit) throws IOException, JSONException {
@@ -154,14 +201,29 @@ public final class NasBridgeClient {
                 try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes); }
             }
             int code = connection.getResponseCode();
-            if (code == 401 || code == 403) throw new IOException("NASBridge 需要登录或访问授权");
-            if (code < 200 || code >= 300) throw new IOException("NASBridge 接口返回 HTTP " + code + "，请检查服务地址或登录状态");
+            boolean codex = path.startsWith("api/codex-accounts");
+            if ((code == 401 || code == 403) && !codex) throw new IOException("鸟巢需要登录或访问授权");
+            if ((code < 200 || code >= 300) && (codex || (!"GET".equals(method)
+                    && (path.startsWith("api/daily-tasks/") || path.startsWith("api/mihomo/"))))) {
+                String detail="操作返回 HTTP " + code;
+                try (InputStream error=connection.getErrorStream()) {
+                    if(error!=null) {
+                        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+                        byte[] buffer=new byte[1024];int count;
+                        while((count=error.read(buffer))!=-1 && bytes.size()+count<=65536)bytes.write(buffer,0,count);
+                        String message=new JSONObject(new String(bytes.toByteArray(),StandardCharsets.UTF_8)).optString("detail");
+                        if(!message.isEmpty())detail=message;
+                    }
+                } catch (IOException | JSONException ignored) { }
+                throw new IOException(detail);
+            }
+            if (code < 200 || code >= 300) throw new IOException("鸟巢接口返回 HTTP " + code + "，请检查服务地址或登录状态");
             try (InputStream input = connection.getInputStream(); ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
                 int count;
                 while ((count = input.read(buffer)) != -1) {
                     if (cancelled) throw new IOException("已取消");
-                    if (bytes.size() + count > limit) throw new IOException("NASBridge 返回数据过大");
+                    if (bytes.size() + count > limit) throw new IOException("鸟巢返回数据过大");
                     bytes.write(buffer, 0, count);
                 }
                 return new JSONObject(new String(bytes.toByteArray(), StandardCharsets.UTF_8));

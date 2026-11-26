@@ -31,14 +31,14 @@ final class GeofenceChecks {
         try (Fixture fixture = new Fixture()) {
             cache.edit().clear().commit();
             GeofenceConfig normal = GeofenceConfig.parse(config(1, false));
-            check(normal.interval == 3600000 && normal.duration == 14400000, "Normal NAS schedule");
+            check(normal.enabled, "Normal NAS geometry loads");
             GeofenceConfig config = GeofenceConfig.parse(config(1, true));
-            check(config.interval == 15000 && config.duration == 60000, "NAS test schedule");
+            check(config.enabled, "Legacy NAS test flag still loads geometry");
             for (String bad : new String[]{config.source.replace("\"schema_version\":2", "\"schema_version\":1"),
                 config.source.replace("\"radius_meters\":2000", "\"radius_meters\":0"),
                 config.source.replace("\"enabled\":true", "\"enabled\":\"true\""),
                 config.source.replace("\"center_latitude\":31.6", "\"center_latitude\":91"),
-                config.source.replace("\"max_detection_seconds\":14400", "\"max_detection_seconds\":14500")}) {
+                config.source.replace("\"max_location_accuracy_meters\":3000", "\"max_location_accuracy_meters\":0")}) {
                 try { GeofenceConfig.parse(bad); throw new AssertionError("Invalid configuration accepted"); }
                 catch (JSONException expected) { checks++; }
             }
@@ -70,28 +70,42 @@ final class GeofenceChecks {
             new HostSettings(c).save(new HostConfig("fixture-never-matches", "http://127.0.0.1:1/", "http://127.0.0.1:" + fixture.server.getLocalPort() + "/"));
             test.runOnMainSync(() -> ((DashboardApplication)c.getApplicationContext()).monitor().configurationChanged());
             activity = test.startActivitySync(new Intent(c, PresenceSettingsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
-            settings.prefs.edit().putBoolean("enabled", true).commit();
+            settings.prefs.edit().putBoolean("enabled", true).putBoolean("test_mode", true).putBoolean("away_confirmed", false).commit();
             test.runOnMainSync(() -> PresenceService.start(c));
             waitFor(() -> GeofenceConfig.cached(c) != null, 12000, "NAS config never synced");
             check(GeofenceConfig.cached(c).enabled, "Live fixture config enabled");
             waitFor(() -> settings.currentStatus().contains("下次检测"), 12000, "No geofence countdown");
-            waitFor(() -> cache.getString("last_check", "").contains("围栏外"), 24000, "Native outside fix not applied");
-            waitFor(() -> settings.prefs.getString("status", "").contains("同步失败") || settings.prefs.getString("status", "").contains("离家"), 5000, "Outside triggers HA attempt early");
-            // New geometry/revision cancels the old outside result and starts a fresh window.
+            final Activity screen = activity;
+            test.runOnMainSync(() -> screen.findViewById(R.id.presence_test_now).performClick());
+            waitFor(() -> cache.getString("last_check", "").contains("围栏外"), 35000, "Immediate test did not apply native outside fix");
+            check(settings.prefs.getBoolean("away_confirmed", false), "Departure persisted");
+            long outsideChecks = cache.getLong("last_check_number", 0);
+            // A config refresh must not restart automatic positioning once away is confirmed.
             fixture.body = config(2, true);
-            test.runOnMainSync(() -> lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, fix(31.6, 104.4)));
             c.sendBroadcast(new Intent(c, PresenceReceiver.class).setAction(PresenceService.REFRESH_CONFIG));
             waitFor(() -> GeofenceConfig.cached(c).revision == 2, 12000, "Updated config not applied");
-            cache.edit().remove("last_check").commit();
-            waitFor(() -> cache.getString("last_check", "").contains("围栏内"), 24000, "Inside fix not applied");
-            check(settings.currentStatus().contains("当前使用外网"), "Inside preserves countdown, does not report home");
+            Thread.sleep(65000);
+            check(cache.getLong("last_check_number", 0) == outsideChecks || !cache.contains("last_check_number"), "Confirmed away stops automatic checks");
+            // Manual testing still works after departure; an inside fix does not invent a home arrival.
+            test.runOnMainSync(() -> lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, fix(31.6, 104.4)));
+            test.runOnMainSync(() -> screen.findViewById(R.id.presence_test_now).performClick());
+            waitFor(() -> cache.getString("last_check", "").contains("围栏内"), 35000, "Manual inside fix not applied");
+            check(settings.prefs.getBoolean("away_confirmed", false), "Only home Wi-Fi resets confirmed departure");
+            // Simulate a fresh monitoring session; inside fixes must never time out to away.
+            test.runOnMainSync(() -> c.stopService(new Intent(c, PresenceService.class)));
+            waitFor(() -> !PresenceService.isRunning(), 5000, "Service stop before inside session");
+            settings.prefs.edit().putBoolean("away_confirmed", false).commit();
+            test.runOnMainSync(() -> PresenceService.start(c));
+            long before = cache.getLong("last_check_at", 0);
+            waitFor(() -> {
+                test.runOnMainSync(() -> lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, fix(31.6, 104.4)));
+                return cache.getLong("last_check_at", 0) > before;
+            }, 100000, "One-minute periodic check missing");
+            check(!settings.prefs.getBoolean("away_confirmed", false), "Inside fix preserves state beyond old test timeout");
             fixture.body = "{}";
             c.sendBroadcast(new Intent(c, PresenceReceiver.class).setAction(PresenceService.REFRESH_CONFIG));
             waitFor(() -> cache.getString("sync_status", "").contains("失败"), 12000, "Invalid config response not detected");
             check(GeofenceConfig.cached(c).revision == 2, "Failed refresh preserves last valid cache");
-            waitFor(() -> settings.currentStatus().contains("同步失败") || settings.currentStatus().contains("离家 ·"), 55000, "Window did not expire after 60 seconds");
-            check(cache.getLong("last_check_number", 0) == 4, "Fourth and final scheduled check runs before fallback");
-            check(settings.currentStatus().contains("离家") || settings.currentStatus().contains("同步失败"), "Window expiry attempts away even inside circle");
             test.runOnMainSync(() -> {
                 settings.prefs.edit().putBoolean("enabled", false).commit();
                 c.stopService(new Intent(c, PresenceService.class));

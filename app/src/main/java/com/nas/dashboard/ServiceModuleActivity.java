@@ -1,10 +1,12 @@
 package com.nas.dashboard;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.nas.dashboard.network.ConnectionMonitor;
@@ -21,9 +23,22 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-/** Native read-only modules matching the existing NASBridge web navigation. */
+/** Native service modules matching the existing NASBridge web navigation. */
 public class ServiceModuleActivity extends Activity {
     private String module;
+    private DailyTasksView dailyTasks;
+    private final android.os.Handler refreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean visible;
+    private boolean actionPending;
+    private final ExecutorService actionWorker = Executors.newSingleThreadExecutor();
+    private boolean refreshingTasks;
+    private final Runnable refreshTasks = () -> {
+        if (visible && "tasks".equals(module)) {
+            refreshingTasks = true;
+            loadedRoute = null;
+            connectionChanged(this.monitor.current());
+        }
+    };
     private ConnectionMonitor monitor;
     private TextView route;
     private TextView status;
@@ -34,32 +49,88 @@ public class ServiceModuleActivity extends Activity {
     private volatile NasBridgeClient client;
     private Future<?> task;
     private HostRouter.Selection loadedRoute;
+    private String codexCurrent;
+    private boolean codexBusy;
+    private JSONObject codexQuota;
+    private LinearLayout codexResults;
+    private Button powerButton;
+    private TextView powerStatus;
+    private int powerRequest;
+    private boolean powerSubmitting;
+    private final Runnable refreshPower = () -> fetchPower(false);
     private final ConnectionMonitor.Listener listener = this::connectionChanged;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        if("mihomo".equals(getIntent().getStringExtra("module"))) {
+            startActivity(new Intent(this,MihomoActivity.class));finish();return;
+        }
         setContentView(R.layout.activity_service_module);
         module = getIntent().getStringExtra("module");
         int title;
-        if ("mihomo".equals(module)) title = R.string.module_mihomo_title;
-        else if ("tasks".equals(module)) title = R.string.module_tasks_title;
+        if ("tasks".equals(module)) title = R.string.module_tasks_title;
         else if ("certificates".equals(module)) title = R.string.module_certificates_title;
         else if ("aliyun".equals(module)) title = R.string.module_aliyun_title;
         else if ("zerotier".equals(module)) title = R.string.module_zerotier_title;
+        else if ("codex".equals(module)) title = R.string.module_codex_title;
+        else if ("devices".equals(module)) title = R.string.module_devices_title;
         else { finish(); return; }
         ((TextView) findViewById(R.id.module_title)).setText(title);
         route = findViewById(R.id.overview_route);
         status = findViewById(R.id.overview_status);
         metrics = findViewById(R.id.overview_metrics);
         content = findViewById(R.id.overview_content);
+        if ("tasks".equals(module)) {
+            dailyTasks = new DailyTasksView(this, content);
+            dailyTasks.restore(state);
+            dailyTasks.setActions(this::performTaskAction);
+            dailyTasks.setDayChanged(refreshTasks);
+            route.setVisibility(View.GONE);
+        }
+        if ("codex".equals(module)) setupCodex();
+        if ("devices".equals(module)) setupPower();
         monitor = ((DashboardApplication) getApplication()).monitor();
         findViewById(R.id.overview_back).setOnClickListener(v -> finish());
-        findViewById(R.id.overview_refresh).setOnClickListener(v -> { loadedRoute = null; connectionChanged(monitor.current()); });
+        findViewById(R.id.overview_refresh).setOnClickListener(v -> {
+            if ("codex".equals(module)) fetchCodex(null);
+            else if ("devices".equals(module)) fetchPower(false);
+            else { loadedRoute = null; connectionChanged(monitor.current()); }
+        });
         findViewById(R.id.module_go_config).setOnClickListener(v -> startActivity(new Intent(this, NetworkSettingsActivity.class)));
     }
 
     private void connectionChanged(ConnectionMonitor.State state) {
         HostRouter.Selection selection = monitor.routeForRequests();
+        if ("devices".equals(module)) {
+            boolean changed = loadedRoute != selection;
+            loadedRoute = selection;
+            route.setText(selection == null ? state.baseUrl : selection.baseUrl + "\n" + selection.reason);
+            findViewById(R.id.module_go_config).setVisibility(selection == null && !state.checking ? View.VISIBLE : View.GONE);
+            findViewById(R.id.overview_refresh).setEnabled(selection != null);
+            if (selection == null) {
+                refreshHandler.removeCallbacks(refreshPower);
+                powerButton.setEnabled(false);
+                powerStatus.setText(state.checking ? "正在选择访问地址…" : "NASBridge 未连接，开发机状态未知");
+            } else if (changed) fetchPower(false);
+            return;
+        }
+        if ("codex".equals(module)) {
+            boolean routeChanged = loadedRoute != selection;
+            if (routeChanged) {
+                cancel();
+                loadedRoute = selection;
+                codexCurrent = null;
+                codexQuota = null;
+                codexBusy = false;
+                codexResults.removeAllViews();
+            }
+            route.setText(selection == null ? state.baseUrl : selection.baseUrl + "\n" + selection.reason);
+            if (selection == null) status.setText(state.checking ? "正在自动选择访问地址…" : getString(R.string.module_need_connection));
+            findViewById(R.id.module_go_config).setVisibility(selection == null && !state.checking ? View.VISIBLE : View.GONE);
+            findViewById(R.id.overview_refresh).setEnabled(selection != null && !codexBusy);
+            if (routeChanged && selection != null) fetchCodex(null);
+            return;
+        }
         if (selection == null) {
             cancel();
             loadedRoute = null;
@@ -71,17 +142,21 @@ public class ServiceModuleActivity extends Activity {
             return;
         }
         if (selection == loadedRoute) return;
+        refreshHandler.removeCallbacks(refreshTasks);
         cancel();
         loadedRoute = selection;
         int request = generation;
         route.setText(selection.baseUrl + "\n" + selection.reason);
         status.setText("正在读取服务数据…");
-        status.setTextColor(Color.parseColor("#75F0D2"));
-        metrics.setText("正在加载当前栏目…");
-        content.removeAllViews();
+        status.setTextColor(Color.parseColor("#52745F"));
+        if (!refreshingTasks) {
+            metrics.setText("正在加载当前栏目…");
+            content.removeAllViews();
+        }
         findViewById(R.id.module_go_config).setVisibility(View.GONE);
         NasBridgeClient next = new NasBridgeClient();
         client = next;
+        String selectedDay = dailyTasks == null ? "" : dailyTasks.selectedDay();
         task = worker.submit(() -> {
             if (request != generation) return;
             try {
@@ -89,8 +164,15 @@ public class ServiceModuleActivity extends Activity {
                 NasBridgeClient.Overview overview = null;
                 JSONObject data = null;
                 String partialError = null;
-                if ("mihomo".equals(module) || "certificates".equals(module)) overview = next.load(factory);
-                if ("tasks".equals(module)) data = next.getJson(factory, "api/daily-tasks");
+                if ("certificates".equals(module)) overview = next.load(factory);
+                if ("tasks".equals(module)) {
+                    data = next.getJson(factory, "api/daily-tasks");
+                    String day = DailyTasksView.taskDay(data.optJSONObject("manual_control"), selectedDay);
+                    if (!day.isEmpty()) {
+                        try { data.put("selected_day", next.dailyTaskDay(factory, day)); }
+                        catch (IOException error) { data.put("selected_day", new JSONObject().put("date",day).put("unavailable",true)); }
+                    }
+                }
                 if ("aliyun".equals(module)) data = next.getJson(factory, "api/aliyun/status");
                 if ("zerotier".equals(module)) data = next.getJson(factory, "api/zerotier/networks");
                 if ("certificates".equals(module)) {
@@ -105,13 +187,17 @@ public class ServiceModuleActivity extends Activity {
                     if (request != generation) return;
                     render(snapshot, json, warning);
                 });
-            } catch (IOException error) {
+            } catch (IOException | org.json.JSONException error) {
                 runOnUiThread(() -> {
                     if (request != generation) return;
                     status.setText("读取失败");
-                    status.setTextColor(Color.parseColor("#FF9FAD"));
+                    status.setTextColor(Color.parseColor("#A34D46"));
                     metrics.setText(error.getMessage() == null ? "请检查服务地址和网络" : error.getMessage());
                     loadedRoute = null;
+                    if (dailyTasks != null) {
+                        status.setText(refreshingTasks ? "刷新失败 · 下方保留上次结果" : "读取失败 · 15 秒后重试");
+                        scheduleTaskRefresh(true);
+                    }
                 });
             }
         });
@@ -119,31 +205,17 @@ public class ServiceModuleActivity extends Activity {
 
     private void render(NasBridgeClient.Overview overview, JSONObject data, String warning) {
         status.setText(warning == null ? "数据已更新" : "部分数据未能加载");
-        status.setTextColor(Color.parseColor(warning == null ? "#75F0D2" : "#F3C879"));
-        if ("mihomo".equals(module)) {
-            metrics.setText("Mihomo：" + state(overview.mihomoStatus) + "\n活动连接：" + overview.connections
-                + "（代理 " + overview.proxiedConnections + " / 直连 " + overview.directConnections + "）"
-                + "\n累计上传：" + bytes(overview.uploadBytes) + "\n累计下载：" + bytes(overview.downloadBytes));
-            heading("应用连接 · " + overview.applications);
-            if (overview.applicationItems.isEmpty()) card("暂无应用", "");
-            for (NasBridgeClient.Application app : overview.applicationItems) card(app.name,
-                "模式：" + state(app.mode) + " · 连接：" + app.connections + "\n上传 " + bytes(app.upload) + " / 下载 " + bytes(app.download));
-        } else if ("tasks".equals(module)) {
+        status.setTextColor(Color.parseColor(warning == null ? "#52745F" : "#916524"));
+        if ("tasks".equals(module)) {
             JSONObject summary = data.optJSONObject("metrics");
             if (summary == null) summary = new JSONObject();
-            metrics.setText("今日运行：" + summary.optInt("today_runs") + "\n总运行：" + summary.optInt("total_runs")
-                + " · 成功：" + summary.optInt("success_runs") + " · 失败：" + summary.optInt("failed_runs")
-                + "\n概要记录：" + summary.optInt("summary_count"));
-            heading("最近运行");
-            JSONArray runs = data.optJSONArray("runs");
-            if (runs == null || runs.length() == 0) card("暂无运行记录", "");
-            for (int i = 0; runs != null && i < Math.min(runs.length(), 30); i++) {
-                JSONObject run = runs.optJSONObject(i);
-                if (run == null || run.optBoolean("hidden")) continue;
-                card(value(run, "run_date") + " · " + state(value(run, "status")),
-                    "开始：" + value(run, "started_at") + "\n视频：" + run.optInt("video_count")
-                    + " · 概要：" + run.optInt("summary_count") + "\n" + value(run, "run_summary"));
-            }
+            metrics.setText("今日运行 "+summary.optInt("today_runs")+" 次 · 概要 "+summary.optInt("summary_count")+" 篇");
+            dailyTasks.accept(data);
+            boolean running = DailyTasksView.needsRefresh(data);
+            status.setText("更新于 " + DailyTaskFormat.time(data.optString("read_at"))
+                + (running ? " · 自动刷新" : ""));
+            refreshingTasks = false;
+            scheduleTaskRefresh(running);
         } else if ("certificates".equals(module)) {
             metrics.setText("证书：" + overview.certificates + "\n" + (warning == null ? "证书与反向代理状态已读取" : "反向代理读取失败：" + warning));
             heading("证书状态");
@@ -163,8 +235,8 @@ public class ServiceModuleActivity extends Activity {
         } else if ("aliyun".equals(module)) {
             boolean configured = data.optBoolean("configured");
             metrics.setText(configured ? "阿里云凭据：已配置" : "阿里云凭据：未配置");
-            card("安全组接入", configured ? "NASBridge 已配置访问凭据。地域选择、安全组规则查询和管理操作后续接入。"
-                : "请先在 NASBridge 服务端配置阿里云凭据。应用不保存或显示 AccessKey。");
+            card("安全组接入", configured ? "鸟巢已配置访问凭据。地域选择、安全组规则查询和管理操作后续接入。"
+                : "请先在 鸟巢服务端配置阿里云凭据。应用不保存或显示 AccessKey。");
         } else if ("zerotier".equals(module)) {
             JSONArray networks = data.optJSONArray("items");
             metrics.setText("网络数量：" + (networks == null ? 0 : networks.length()));
@@ -187,7 +259,196 @@ public class ServiceModuleActivity extends Activity {
                 card(value(network, "name"), description.toString());
             }
         }
-        card("更新时间", DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(new Date()));
+        if (dailyTasks == null) card("更新时间", DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(new Date()));
+    }
+
+    private void setupCodex() {
+        metrics.setText("Ubuntu 开发服务器");
+        codexResults = new LinearLayout(this);
+        codexResults.setOrientation(LinearLayout.VERTICAL);
+        content.addView(codexResults, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void setupPower() {
+        status.setVisibility(View.GONE);
+        metrics.setVisibility(View.GONE);
+        LinearLayout power = new LinearLayout(this);
+        power.setOrientation(LinearLayout.VERTICAL);
+        power.setPadding(dp(16), dp(16), dp(16), dp(16));
+        power.setBackgroundResource(R.drawable.card);
+        LinearLayout.LayoutParams location = new LinearLayout.LayoutParams(-1, -2);
+        location.topMargin = dp(20);
+        content.addView(power, location);
+        power.addView(label("Ubuntu 开发机", 17, "#3B3A49"));
+        powerStatus = label("正在检查开发机状态…", 13, "#706B75");
+        power.addView(powerStatus);
+        powerButton = new Button(this);
+        powerButton.setText("关机");
+        powerButton.setTextColor(Color.parseColor("#A34D46"));
+        powerButton.setEnabled(false);
+        power.addView(powerButton);
+        powerButton.setOnClickListener(v -> {
+            HostRouter.Selection selection = loadedRoute;
+            new AlertDialog.Builder(this).setTitle("确认关闭开发机？")
+                .setMessage("请先保存工作。开发机正常关机并确认离线后，Home Assistant 会关闭智能插座。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("确认关机", (dialog, which) -> {
+                    if (selection == loadedRoute && powerButton.isEnabled()) fetchPower(true);
+                }).show();
+        });
+    }
+
+    private void fetchPower(boolean submit) {
+        HostRouter.Selection selection = monitor.routeForRequests();
+        if (selection == null || selection != loadedRoute || powerSubmitting) return;
+        refreshHandler.removeCallbacks(refreshPower);
+        int request = ++powerRequest;
+        powerSubmitting = submit;
+        powerButton.setEnabled(false);
+        if (submit) powerStatus.setText("正在提交关机请求…");
+        findViewById(R.id.overview_refresh).setEnabled(false);
+        actionWorker.submit(() -> {
+            JSONObject data = null;
+            String detail = null;
+            try { data = new NasBridgeClient().developerPower(selection::openConnection, submit); }
+            catch (IOException error) { detail = error.getMessage(); }
+            JSONObject result = data;
+            String error = detail;
+            runOnUiThread(() -> {
+                if (submit) powerSubmitting = false;
+                if (!visible || isDestroyed()) return;
+                if (request != powerRequest || selection != loadedRoute) {
+                    if (submit) fetchPower(false);
+                    return;
+                }
+                findViewById(R.id.overview_refresh).setEnabled(true);
+                refreshHandler.postDelayed(refreshPower, 15000);
+                if (result == null) {
+                    powerStatus.setText(error == null ? "无法确认开发机状态" : error);
+                    return;
+                }
+                powerStatus.setText(result.optString("message", "无法确认开发机状态"));
+                String state = result.optString("state");
+                powerButton.setEnabled("ready".equals(state) || "power_still_online".equals(state));
+            });
+        });
+    }
+
+    private void fetchCodex(String target) {
+        HostRouter.Selection selection = monitor.routeForRequests();
+        if (codexBusy || selection == null || selection != loadedRoute
+                || (target != null && codexCurrent == null)) return;
+        String expected = codexCurrent;
+        codexCurrent = null;
+        codexBusy = true;
+        findViewById(R.id.overview_refresh).setEnabled(false);
+        codexResults.removeAllViews();
+        status.setText(target == null ? "正在读取账号…" : "正在切换账号…");
+        cancel();
+        int request = generation;
+        NasBridgeClient api = new NasBridgeClient();
+        client = api;
+        task = worker.submit(() -> {
+            JSONObject data = null;
+            String error = null;
+            try { data = api.codexAccounts(selection::openConnection, target, expected); }
+            catch (IOException failure) { error = failure.getMessage(); }
+            JSONObject result = data;
+            String detail = error;
+            runOnUiThread(() -> {
+                if (!visible || generation != request) return;
+                codexBusy = false;
+                findViewById(R.id.overview_refresh).setEnabled(true);
+                if (result == null) {
+                    status.setText((detail == null ? "无法读取账号状态" : detail)
+                        + (target == null ? "" : "；请刷新确认后再操作。"));
+                    return;
+                }
+                showCodex(result);
+                status.setText(target == null ? "账号已读取" : "切换已确认，重新启动 Codex 后生效");
+            });
+        });
+    }
+
+    private void showCodex(JSONObject result) {
+        codexCurrent = result.optString("current");
+        if (result.has("quota")) codexQuota = result.optJSONObject("quota");
+        JSONArray accounts = result.optJSONArray("accounts");
+        java.util.Set<String> emails = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < accounts.length(); i++) {
+            String email = accounts.optString(i);
+            if (!email.isEmpty()) emails.add(email);
+        }
+        emails.add(codexCurrent);
+        for (String email : emails) {
+            boolean active = email.equals(codexCurrent);
+            LinearLayout account = new LinearLayout(this);
+            account.setOrientation(LinearLayout.VERTICAL);
+            account.setMinimumHeight(dp(98));
+            account.setPadding(dp(18), dp(16), dp(18), dp(16));
+            android.graphics.drawable.GradientDrawable surface = new android.graphics.drawable.GradientDrawable();
+            surface.setCornerRadius(dp(18));
+            surface.setColor(Color.parseColor(active ? "#EEF3E8" : "#FFFCF4"));
+            surface.setStroke(dp(1), Color.parseColor(active ? "#829983" : "#D4C5AD"));
+            account.setBackground(surface);
+            TextView title = label(email, 17, "#3B3A49");
+            title.setTypeface(null, android.graphics.Typeface.BOLD);
+            account.addView(title);
+            showCodexQuota(account, codexQuota == null ? null : codexQuota.optJSONArray(email));
+            TextView action = label(active ? "当前登录" : "切换到此账号 →", 13, active ? "#375D43" : "#4D669D");
+            action.setPadding(0, dp(8), 0, 0);
+            account.addView(action);
+            if (!active) {
+                android.util.TypedValue ripple = new android.util.TypedValue();
+                if (getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true)) {
+                    account.setForeground(getDrawable(ripple.resourceId));
+                }
+                account.setFocusable(true);
+                account.setContentDescription(email + "，切换到此账号");
+                account.setOnClickListener(v -> confirmCodexSwitch(email));
+            }
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+            params.topMargin = dp(12);
+            codexResults.addView(account, params);
+        }
+    }
+
+    private void showCodexQuota(LinearLayout account, JSONArray windows) {
+        if (windows == null || windows.length() == 0) {
+            TextView unavailable = label("余量暂不可用", 13, "#706B75");
+            unavailable.setPadding(0, dp(8), 0, 0);
+            account.addView(unavailable);
+            return;
+        }
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("M月d日 HH:mm", Locale.SIMPLIFIED_CHINESE);
+        format.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
+        for (int i = 0; i < windows.length(); i++) {
+            JSONObject window = windows.optJSONObject(i);
+            if (window == null) continue;
+            int seconds = window.optInt("window_seconds");
+            String name = seconds == 604800 ? "周额度" : seconds % 3600 == 0
+                ? (seconds / 3600) + " 小时额度" : Math.round(seconds / 60f) + " 分钟额度";
+            String remaining = new java.text.DecimalFormat("0.#",
+                java.text.DecimalFormatSymbols.getInstance(Locale.SIMPLIFIED_CHINESE))
+                .format(window.optDouble("remaining_percent"));
+            TextView value = label(name + " · 剩余 " + remaining + "%", 14, "#3B3A49");
+            value.setTypeface(null, android.graphics.Typeface.BOLD);
+            value.setPadding(0, dp(9), 0, 0);
+            account.addView(value);
+            String reset = format.format(new Date(window.optLong("reset_at") * 1000L));
+            account.addView(label(reset + " 重置（北京时间）", 12, "#706B75"));
+        }
+    }
+
+    private void confirmCodexSwitch(String email) {
+        String expected = codexCurrent;
+        HostRouter.Selection selection = loadedRoute;
+        new AlertDialog.Builder(this).setTitle("切换 Codex 账号？")
+            .setMessage(email + "\n\n切换后请重新启动 Codex。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("确认切换", (dialog, which) -> {
+                if (selection == loadedRoute && expected != null && expected.equals(codexCurrent)) fetchCodex(email);
+            }).show();
     }
 
     private static String value(JSONObject data, String key) { return data.isNull(key) ? "—" : data.optString(key, "—"); }
@@ -208,16 +469,16 @@ public class ServiceModuleActivity extends Activity {
         }
     }
     private void heading(String text) {
-        TextView view = label(text, 19, "#75F0D2");
+        TextView view = label(text, 19, "#52745F");
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.topMargin = dp(24); view.setLayoutParams(params); content.addView(view);
     }
-    private void card(String title, String description) { card(title, description, "#9BB4C7"); }
+    private void card(String title, String description) { card(title, description, "#706B75"); }
     private void card(String title, String description, String color) {
         LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(16), dp(16), dp(16)); card.setBackgroundResource(R.drawable.card);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(12); card.setLayoutParams(params);
-        card.addView(label(title, 16, "#E6F4FF"));
+        card.addView(label(title, 16, "#3B3A49"));
         if (!description.isEmpty()) { TextView body = label(description, 13, color); body.setPadding(0, dp(8), 0, 0); card.addView(body); }
         content.addView(card);
     }
@@ -232,7 +493,50 @@ public class ServiceModuleActivity extends Activity {
         return String.format(Locale.getDefault(), "%.1f %s", amount, units[unit]);
     }
     private void cancel() { generation++; if (client != null) client.cancel(); if (task != null) task.cancel(true); client = null; task = null; }
-    @Override protected void onStart() { super.onStart(); if (monitor != null) monitor.addListener(listener); }
-    @Override protected void onStop() { if (monitor != null) monitor.removeListener(listener); cancel(); loadedRoute = null; super.onStop(); }
-    @Override protected void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
+    @Override protected void onStart() { super.onStart(); visible = true; if (monitor != null) monitor.addListener(listener); }
+    @Override protected void onStop() {
+        visible = false;
+        refreshHandler.removeCallbacks(refreshTasks);
+        refreshHandler.removeCallbacks(refreshPower);
+        if (monitor != null) monitor.removeListener(listener);
+        cancel();
+        loadedRoute = null;
+        if (powerButton != null) {
+            powerRequest++;
+            powerButton.setEnabled(false);
+        }
+        if (codexResults != null) {
+            codexBusy = false;
+            codexCurrent = null;
+            codexQuota = null;
+            codexResults.removeAllViews();
+        }
+        super.onStop();
+    }
+    private void performTaskAction(String action,String id) {
+        if(actionPending)return;
+        HostRouter.Selection selection=monitor.routeForRequests();
+        if(selection==null){dailyTasks.setBusy(false,"当前没有可用地址，请等待网络连接后再操作。");return;}
+        actionPending=true;dailyTasks.setBusy(true,"正在提交操作…");
+        actionWorker.submit(()->{
+            NasBridgeClient api=new NasBridgeClient();String message;
+            try {message=api.dailyTaskAction(selection::openConnection,action,id).optString("message","操作已保存");}
+            catch(IOException error){message=error.getMessage()+"；请刷新记录确认状态后再操作。";}
+            String feedback=message;
+            runOnUiThread(()->{
+                if(isDestroyed())return;
+                actionPending=false;dailyTasks.setBusy(false,feedback);
+                if(visible){loadedRoute=null;connectionChanged(monitor.current());}
+            });
+        });
+    }
+    private void scheduleTaskRefresh(boolean again) {
+        refreshHandler.removeCallbacks(refreshTasks);
+        if (visible && again) refreshHandler.postDelayed(refreshTasks, 15000);
+    }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        if (dailyTasks != null) dailyTasks.save(state);
+        super.onSaveInstanceState(state);
+    }
+    @Override protected void onDestroy() { worker.shutdownNow(); actionWorker.shutdown(); super.onDestroy(); }
 }

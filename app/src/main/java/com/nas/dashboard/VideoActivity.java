@@ -1,6 +1,7 @@
 package com.nas.dashboard;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.media.AudioAttributes;
@@ -40,10 +41,14 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
     private PopupMenu speedMenu;
     private static final float[] SPEEDS = {0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f};
     private static final String[] SPEED_LABELS = {"0.5×", "0.75×", "1×", "1.25×", "1.5×", "1.75×", "2×"};
-    private float playbackSpeed = 1f;
+    private static final float DEFAULT_SPEED = 1.5f;
+    private SharedPreferences playbackPrefs;
+    private String videoId;
+    private float playbackSpeed;
     private SeekBar seek;
     private boolean started, hasSurface, prepared, dragging, videoRendered, resumePlaying = true;
-    private int generation, savedPosition;
+    private boolean playbackCompleted;
+    private int generation, savedPosition, pendingSeekPosition = -1;
     private boolean loading, waitingForRoute;
     private ConnectionMonitor monitor;
     private VideoGestures gestures;
@@ -61,7 +66,14 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state); setContentView(R.layout.activity_video);
         monitor=((DashboardApplication)getApplication()).monitor();
-        if (state != null) { savedPosition = state.getInt("position"); resumePlaying = state.getBoolean("playing", true); playbackSpeed = state.getFloat("speed", 1f); }
+        playbackPrefs = getSharedPreferences("video_playback", MODE_PRIVATE);
+        playbackSpeed = playbackPrefs.getFloat("speed", DEFAULT_SPEED);
+        if (state != null) {
+            videoId = state.getString("video_id");
+            savedPosition = state.getInt("position");
+            resumePlaying = state.getBoolean("playing", true);
+            playbackSpeed = state.getFloat("speed", playbackSpeed);
+        }
         surface = findViewById(R.id.video_surface); surface.getHolder().addCallback(this);
         status = findViewById(R.id.video_status); time = findViewById(R.id.video_time);
         play = findViewById(R.id.video_play); seek = findViewById(R.id.video_seek);
@@ -72,7 +84,10 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
             for (int i = 0; i < SPEEDS.length; i++) menu.getMenu().add(0, i, i, SPEED_LABELS[i]).setCheckable(true).setChecked(SPEEDS[i] == playbackSpeed);
             menu.getMenu().setGroupCheckable(0, true, true);
             menu.setOnMenuItemClickListener(item -> {
-                if (prepared && player != null) changeSpeed(SPEEDS[item.getItemId()], player.isPlaying());
+                float selected = SPEEDS[item.getItemId()];
+                if (prepared && changeSpeed(selected, player.isPlaying(), playbackSpeed)) {
+                    playbackPrefs.edit().putFloat("speed", selected).apply();
+                }
                 return true;
             });
             menu.show();
@@ -82,8 +97,8 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
         findViewById(R.id.video_back).setOnClickListener(v -> finish());
         play.setOnClickListener(v -> {
             if (!prepared) { resumePlaying = true; begin(); return; }
-            if (player.isPlaying()) { player.pause(); resumePlaying = false; status.setText("已暂停"); }
-            else { player.start(); resumePlaying = true; status.setText("正在播放"); }
+            if (player.isPlaying()) { player.pause(); rememberPosition(); resumePlaying = false; status.setText("已暂停"); }
+            else { playbackCompleted = false; player.start(); resumePlaying = true; status.setText("正在播放"); }
             playingUi();
         });
         findViewById(R.id.video_fullscreen).setOnClickListener(v -> setRequestedOrientation(
@@ -94,7 +109,7 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
             public void onProgressChanged(SeekBar bar, int value, boolean user) { }
             public void onStopTrackingTouch(SeekBar bar) {
                 dragging = false;
-                if (prepared) { status.setText("正在跳转…"); player.seekTo(bar.getProgress()); }
+                if (prepared) seekTo(bar.getProgress(), false);
             }
         });
         findViewById(R.id.video_frame).addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> fit());
@@ -109,10 +124,7 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
             public int position(){return player.getCurrentPosition();}
             public int duration(){return player.getDuration();}
             public void seek(int milliseconds){
-                if(!ready())return;
-                status.setText("正在跳转…");
-                if(android.os.Build.VERSION.SDK_INT>=26)player.seekTo(milliseconds,MediaPlayer.SEEK_CLOSEST);
-                else player.seekTo(milliseconds);
+                if(ready())seekTo(milliseconds, true);
             }
         });
         surface.setOnTouchListener(gestures);
@@ -150,20 +162,33 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
                 runOnUiThread(() -> {
                     if (request != generation || !started || !hasSurface) { data.close(); return; }
                     try {
+                        if (!videoId.equals(this.videoId)) {
+                            this.videoId = videoId;
+                            savedPosition = playbackPrefs.getInt("position." + videoId, 0);
+                        }
                         loading=false; source = data; player = new MediaPlayer();
                         player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MOVIE).build());
                         player.setDisplay(surface.getHolder()); player.setDataSource(data);
                         player.setOnPreparedListener(p -> {
                             prepared = true; seek.setMax(p.getDuration()); seek.setEnabled(true); play.setEnabled(true); fit();
-                            if (savedPosition > 0) p.seekTo(savedPosition);
-                            changeSpeed(playbackSpeed, resumePlaying);
+                            playbackCompleted = false;
+                            if (savedPosition > 0 && savedPosition < p.getDuration()) seekTo(savedPosition, true);
+                            changeSpeed(playbackSpeed, resumePlaying, 1f);
                             if (!prepared) return;
                             speed.setEnabled(true);
                             status.setText(resumePlaying ? "正在播放" : "已暂停"); playingUi();
                             handler.removeCallbacks(progress); handler.post(progress);
                         });
-                        player.setOnSeekCompleteListener(p -> status.setText(p.isPlaying() ? "正在播放" : "已暂停"));
-                        player.setOnCompletionListener(p -> { resumePlaying = false; savedPosition = 0; status.setText("播放完成"); playingUi(); });
+                        player.setOnSeekCompleteListener(p -> {
+                            pendingSeekPosition = -1;
+                            status.setText(p.isPlaying() ? "正在播放" : "已暂停");
+                        });
+                        player.setOnCompletionListener(p -> {
+                            resumePlaying = false;
+                            playbackCompleted = true;
+                            rememberPosition();
+                            status.setText("播放完成"); playingUi();
+                        });
                         player.setOnInfoListener((p, what, extra) -> {
                             if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) videoRendered = true;
                             if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) status.setText("正在缓冲…");
@@ -186,8 +211,7 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
         speed.setText(label);
         speed.setContentDescription("播放速度 " + label + "，点击选择倍速");
     }
-    private void changeSpeed(float value, boolean shouldPlay) {
-        float previous = playbackSpeed;
+    private boolean changeSpeed(float value, boolean shouldPlay, float previous) {
         try {
             player.setPlaybackParams(new PlaybackParams().allowDefaults().setPitch(1f).setSpeed(value));
             if (shouldPlay) player.start(); else player.pause();
@@ -196,12 +220,35 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
             try {
                 player.setPlaybackParams(new PlaybackParams().allowDefaults().setPitch(1f).setSpeed(previous));
                 if (shouldPlay) player.start(); else player.pause();
+                playbackSpeed = previous;
             } catch (IllegalArgumentException | IllegalStateException restoreFailed) {
-                fail("倍速调整失败，请重试播放"); return;
+                fail("倍速调整失败，请重试播放"); return false;
             }
             Toast.makeText(this, "当前设备不支持该倍速", Toast.LENGTH_SHORT).show();
         }
         speedLabel(); playingUi();
+        return playbackSpeed == value;
+    }
+    private void seekTo(int position, boolean closest) {
+        playbackCompleted = false;
+        pendingSeekPosition = position;
+        status.setText("正在跳转…");
+        if (closest && android.os.Build.VERSION.SDK_INT >= 26) player.seekTo(position, MediaPlayer.SEEK_CLOSEST);
+        else player.seekTo(position);
+    }
+    private int resumePosition() {
+        if (!prepared || player == null) return savedPosition;
+        if (playbackCompleted) return 0;
+        int position = pendingSeekPosition >= 0 ? pendingSeekPosition : player.getCurrentPosition();
+        return position < player.getDuration() ? position : 0;
+    }
+    private void rememberPosition() {
+        savedPosition = resumePosition();
+        String key = "position." + videoId;
+        SharedPreferences.Editor edit = playbackPrefs.edit();
+        if (savedPosition > 0) edit.putInt(key, savedPosition);
+        else edit.remove(key);
+        edit.apply();
     }
     private void fit() {
         if (player == null || !prepared) return;
@@ -218,10 +265,10 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
         generation++; loading=false; waitingForRoute=false; handler.removeCallbacks(progress);
         if (speedMenu != null) { speedMenu.dismiss(); speedMenu = null; }
         if (client != null) { client.cancel(); client = null; }
-        if (save && prepared && player != null) { savedPosition = player.getCurrentPosition(); resumePlaying = player.isPlaying(); }
+        if (save && prepared && player != null) { rememberPosition(); resumePlaying = player.isPlaying(); }
         if (source != null) { source.close(); source = null; }
         if (player != null) { player.release(); player = null; }
-        prepared = false; videoRendered = false; seek.setEnabled(false); speed.setEnabled(false);
+        prepared = false; videoRendered = false; pendingSeekPosition = -1; seek.setEnabled(false); speed.setEnabled(false);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
     private static String clock(int ms) { int seconds = ms / 1000; return String.format(Locale.ROOT, "%02d:%02d", seconds/60, seconds%60); }
@@ -230,7 +277,8 @@ public final class VideoActivity extends Activity implements SurfaceHolder.Callb
     @Override protected void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putFloat("speed", playbackSpeed);
-        state.putInt("position", prepared && player != null ? player.getCurrentPosition() : savedPosition);
+        state.putString("video_id", videoId);
+        state.putInt("position", resumePosition());
         state.putBoolean("playing", prepared && player != null ? player.isPlaying() : resumePlaying); super.onSaveInstanceState(state);
     }
     @Override public void surfaceCreated(SurfaceHolder holder) { hasSurface = true; begin(); }

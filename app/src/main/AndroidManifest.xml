@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -9,6 +11,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -21,18 +24,34 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <service android:name=".presence.PresenceService" android:exported="false" android:foregroundServiceType="location" />
+        <service android:name=".SmsNotificationService" android:exported="false" android:foregroundServiceType="remoteMessaging" />
+        <service android:name=".SmsQuickFillService" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:label="麻雀会验证码快捷填入">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/sms_quick_fill" />
+        </service>
+        <receiver android:name=".SmsNotificationReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <activity android:name=".SmsNotificationSettingsActivity" android:exported="false" />
+        <activity android:name=".SmsCopyActivity" android:exported="false" android:excludeFromRecents="true" />
+        <activity android:name=".SmsFillTestActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <receiver android:name=".presence.PresenceReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <activity android:name=".SetupScannerActivity" android:exported="false" />
         <activity android:name=".PresenceSettingsActivity" android:exported="false" />
         <activity android:name=".SmsActivity" android:exported="false" />
         <activity android:name=".ArticlesActivity" android:exported="false" />
         <activity android:name=".RhinoActivity" android:exported="false" />
         <activity android:name=".VideoActivity" android:exported="false" android:configChanges="orientation|screenSize" />
         <activity android:name=".ArticleActivity" android:exported="false" />
+        <activity android:name=".MihomoActivity" android:exported="false" />
         <activity android:name=".ServiceModuleActivity" android:exported="false" />
         <activity android:name=".NetworkSettingsActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">

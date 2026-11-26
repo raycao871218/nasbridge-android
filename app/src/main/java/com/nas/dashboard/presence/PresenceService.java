@@ -19,7 +19,7 @@ import java.util.Date;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 
-/** Uses the process-wide NAS route, including its LAN ping result. */
+/** Home Wi-Fi reports home; periodic location checks stop after confirmed departure. */
 public final class PresenceService extends Service {
     private static final int ID = 104;
     private static volatile boolean running;
@@ -40,6 +40,17 @@ public final class PresenceService extends Service {
         service.monitor.refreshRouting();
         service.later(0);
     }
+    public static final String TEST_NOW = "com.nas.dashboard.TEST_PRESENCE_NOW";
+    public static void modeChanged() {
+        PresenceService service = instance;
+        if (service != null) service.main.post(() -> {
+            service.generation++; service.locator.cancel();
+            service.window.reschedule(SystemClock.elapsedRealtime());
+            service.locationResult = "等待下次检测";
+            service.cancelAlarm(); service.later(0);
+        });
+    }
+    private boolean testRequested;
     private static long startRequestedAt;
 
     public static boolean isRunning() { return running; }
@@ -76,7 +87,7 @@ public final class PresenceService extends Service {
     private volatile int generation;
     private PresencePolicy.State candidate = PresencePolicy.State.UNKNOWN;
     private long nextSyncAt;
-    private final GeofencePolicy.Window window = new GeofencePolicy.Window();
+    private final GeofencePolicy.Schedule window = new GeofencePolicy.Schedule();
     private GeofenceConfig geofence;
     private GeofenceLocator locator;
     private final ExecutorService configWorker = Executors.newSingleThreadExecutor();
@@ -112,7 +123,7 @@ public final class PresenceService extends Service {
                 if (result != null) {
                     result.save(this);
                     if (geofence == null || !result.source.equals(geofence.source)) {
-                        generation++; locator.cancel(); window.reset(); nextSyncAt = 0;
+                        generation++; locator.cancel(); window.reschedule(SystemClock.elapsedRealtime()); nextSyncAt = 0;
                         locationResult = "配置已更新，等待检测";
                         GeofenceConfig.prefs(this).edit().remove("last_check").remove("last_check_at")
                             .remove("last_check_number").apply();
@@ -141,6 +152,7 @@ public final class PresenceService extends Service {
         settings = new PresenceSettings(this);
         instance = this;
         geofence = GeofenceConfig.cached(this);
+        if (settings.prefs.getBoolean("away_confirmed", false)) window.markOutside();
         locator = new GeofenceLocator(this);
         tick = PendingIntent.getBroadcast(this, 1, new Intent(this, PresenceReceiver.class)
             .setAction("com.nas.dashboard.PRESENCE_TICK"), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -153,10 +165,11 @@ public final class PresenceService extends Service {
     }
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (!settings.enabled() || !permitted(this)) { stopSelf(); return START_NOT_STICKY; }
-        generation++;
+        generation++; locator.cancel();
+        testRequested |= intent != null && TEST_NOW.equals(intent.getAction());
         nextSyncAt = 0;
         try {
-            startForeground(ID, notification("正在判断内外网…"));
+            startForeground(ID, notification("正在检查家庭 Wi-Fi…"));
             running = true;
             startRequestedAt = 0;
             if (!registered) {
@@ -181,18 +194,13 @@ public final class PresenceService extends Service {
             stopSelf(); return START_NOT_STICKY;
         }
     }
-    private Notification notification(String text) { return notification(text, 0); }
-    private Notification notification(String text, long remaining) {
+    private Notification notification(String text) {
         Intent open = new Intent(this, PresenceSettingsActivity.class);
         PendingIntent pending = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Intent stop = new Intent(this, PresenceReceiver.class).setAction("com.nas.dashboard.STOP_PRESENCE");
         PendingIntent action = PendingIntent.getBroadcast(this, 0, stop, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, "presence") : new Notification.Builder(this);
-        if (remaining > 0 && Build.VERSION.SDK_INT >= 24) {
-            b.setUsesChronometer(true).setChronometerCountDown(true)
-                .setWhen(System.currentTimeMillis() + remaining).setShowWhen(true);
-        }
-        return b.setSmallIcon(R.drawable.ic_network).setContentTitle(remaining > 0 ? "NASBridge · 离家倒计时" : "NASBridge · 在家状态同步")
+        return b.setSmallIcon(R.drawable.ic_network).setContentTitle("麻雀会 · 在家状态同步")
             .setStyle(new Notification.BigTextStyle().bigText(text))
             .setContentText(text).setContentIntent(pending).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(new Notification.Action.Builder(null, "停止同步", action).build()).build();
@@ -208,10 +216,25 @@ public final class PresenceService extends Service {
         later(0);
     }
     private boolean online() { return connectivity.getActiveNetwork() != null; }
+    @SuppressWarnings("deprecation")
     private PresencePolicy.State detect() {
-        HostRouter.Selection route = monitor.selectedRoute();
-        return PresencePolicy.detectRoute(route != null && !route.baseUrl.isEmpty(),
-            route != null && route.checking, route != null && route.local, online());
+        com.nas.dashboard.network.HostConfig home = new com.nas.dashboard.network.HostSettings(this).load();
+        if (home == null || !permitted(this)) return PresencePolicy.State.UNKNOWN;
+        boolean wifiConnected = false;
+        for (Network network : connectivity.getAllNetworks()) {
+            NetworkCapabilities caps = connectivity.getNetworkCapabilities(network);
+            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                && !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) { wifiConnected = true; break; }
+        }
+        if (!wifiConnected) return PresencePolicy.State.AWAY;
+        LocationManager location = getSystemService(LocationManager.class);
+        boolean locationEnabled = Build.VERSION.SDK_INT >= 28 ? location.isLocationEnabled()
+            : location.isProviderEnabled(LocationManager.GPS_PROVIDER) || location.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        if (!locationEnabled) return PresencePolicy.State.UNKNOWN;
+        WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+        WifiInfo info = wifi == null ? null : wifi.getConnectionInfo();
+        String ssid = info == null ? "" : com.nas.dashboard.network.HostConfig.normalizeSsid(info.getSSID());
+        return PresencePolicy.detectWifi(true, true, !ssid.isEmpty() && !WifiManager.UNKNOWN_SSID.equals(ssid), home.matches(ssid));
     }
     private void later(long delay) { main.removeCallbacks(evaluate); main.postDelayed(evaluate, delay); }
     private void evaluate() {
@@ -225,47 +248,62 @@ public final class PresenceService extends Service {
             candidate = next; generation++; locator.cancel();
             nextSyncAt = 0;
         }
-        HostRouter.Selection route = monitor.selectedRoute();
-        boolean selecting = route != null && route.checking && online();
         long now = SystemClock.elapsedRealtime();
+        long interval = settings.checkIntervalMillis();
         boolean geoEnabled = geofence != null && geofence.enabled;
-        long duration = geoEnabled ? geofence.duration : settings.awayDelayMillis();
-        window.update(next, selecting, now);
-        long remaining = window.remaining(now, duration);
+        window.update(next, now);
         if (next == PresencePolicy.State.UNKNOWN) {
-            if (!selecting) { locator.cancel(); cancelAlarm(); }
-            status(selecting ? "正在判断内外网，保留 HA 状态…"
-                : "无法判断内外网：请检查网络连接及网络配置；保留 HA 状态");
-            later(selecting ? 2000 : 60000); return;
+            locator.cancel(); cancelAlarm(); testRequested = false;
+            status("无法识别家庭 Wi-Fi，请检查网络配置和定位权限；保留原状态");
+            later(60000); return;
         }
-        if (next == PresencePolicy.State.HOME) { locator.cancel(); cancelAlarm(); }
-        if (next == PresencePolicy.State.AWAY && geoEnabled && !window.outside()
-            && !locator.active() && window.claim(now, geofence.interval, duration)) {
-            int request = generation;
-            GeofenceConfig config = geofence;
-            locationResult = "正在获取位置（第 " + window.checks() + " 次）";
-            locator.start(config, location -> {
-                if (destroyed || request != generation || detect() != PresencePolicy.State.AWAY) return;
-                if (location == null) locationResult = "定位不可用，保留 HA 状态";
-                else {
-                    double distance = GeofencePolicy.distance(location.getLatitude(), location.getLongitude(), config.latitude, config.longitude);
-                    if (GeofencePolicy.outside(distance, config.radius, config.buffer, location.getAccuracy())) {
-                        window.markOutside(); locationResult = "已确认在围栏外"; nextSyncAt = 0;
-                    } else locationResult = "位于围栏内或边缘，保留 HA 状态";
-                }
-                GeofenceConfig.prefs(this).edit().putString("last_check", locationResult)
-                    .putLong("last_check_at", System.currentTimeMillis()).putLong("last_check_number", window.checks()).apply();
-                later(0);
-            });
+        if (next == PresencePolicy.State.HOME) {
+            locator.cancel(); cancelAlarm(); testRequested = false;
+            settings.prefs.edit().putBoolean("away_confirmed", false).apply();
         }
-        if (next == PresencePolicy.State.AWAY && !window.outside() && (remaining > 0 || locator.active())) {
-            String text = "当前使用外网，持续满 " + (duration / 60000) + " 分钟后确认离家";
-            if (geoEnabled) text += "\n" + locationResult + "\n" + (locator.active() ? "本次定位中…"
-                : "下次检测：" + DateFormat.getTimeInstance().format(new Date(System.currentTimeMillis() + window.nextIn(now, geofence.interval))));
-            settings.countdown(text, remaining);
-            getSystemService(NotificationManager.class).notify(ID, notification(settings.currentStatus(), remaining));
-            alarm(locator.active() ? 30000 : Math.min(remaining, geoEnabled ? window.nextIn(now, geofence.interval) : remaining));
-            later(1000); return;
+        if (next == PresencePolicy.State.AWAY) {
+            if (testRequested && fetching) {
+                status("立即测试：正在读取最新围栏配置…");
+                later(1000); return;
+            }
+            boolean manual = testRequested;
+            testRequested = false;
+            if (manual && locator.active()) { generation++; locator.cancel(); }
+            boolean due = geoEnabled && !locator.active() && (manual || window.claim(now, interval));
+            if (due) {
+                if (manual) window.checked(now);
+                int request = generation;
+                GeofenceConfig config = geofence;
+                locationResult = "正在定位…";
+                locator.start(config, location -> {
+                    if (destroyed || request != generation || detect() != PresencePolicy.State.AWAY) return;
+                    if (location == null) locationResult = "定位失败，保留原状态，下次继续";
+                    else {
+                        double distance = GeofencePolicy.distance(location.getLatitude(), location.getLongitude(), config.latitude, config.longitude);
+                        if (GeofencePolicy.outside(distance, config.radius, location.getAccuracy())) {
+                            window.markOutside();
+                            settings.prefs.edit().putBoolean("away_confirmed", true).apply();
+                            locationResult = "离家：已在围栏外，停止自动定位"; nextSyncAt = 0;
+                        } else locationResult = "仍在围栏内或边缘，保留原状态";
+                    }
+                    GeofenceConfig.prefs(this).edit().putString("last_check", locationResult)
+                        .putLong("last_check_at", System.currentTimeMillis()).putLong("last_check_number", window.checks()).apply();
+                    later(0);
+                });
+            }
+            if (!window.outside() || locator.active()) {
+                String text;
+                if (!geoEnabled) text = "尚未启用 NAS 围栏，保留原状态；请配置围栏后同步";
+                else if (locator.active()) text = "已断开家庭 Wi-Fi · 正在定位…";
+                else text = "已断开家庭 Wi-Fi · " + locationResult + "\n下次检测："
+                    + DateFormat.getTimeInstance().format(new Date(System.currentTimeMillis() + window.nextIn(now, interval)))
+                    + (settings.testMode() ? "（测试：1 分钟）" : "（正常：30 分钟）");
+                status(text);
+                if (geoEnabled) alarm(locator.active() ? 30000 : window.nextIn(now, interval));
+                else cancelAlarm();
+                later(locator.active() ? 1000 : geoEnabled ? Math.max(1000, window.nextIn(now, interval)) : 60000);
+                return;
+            }
         }
         cancelAlarm();
         if (busy) { later(2000); return; }
@@ -289,7 +327,7 @@ public final class PresenceService extends Service {
                         client.set(url, entity, token, home);
                         if (!expected.equals(client.state(url, entity, token))) throw new java.io.IOException();
                     }
-                    result = (home ? "在家" : "离家") + " · HA：" + expected + " · "
+                    result = (home ? "在家" : "离家（已停止自动定位）") + " · HA：" + expected + " · "
                         + DateFormat.getTimeInstance().format(new Date());
                     returnResult(request, result, true);
                 }

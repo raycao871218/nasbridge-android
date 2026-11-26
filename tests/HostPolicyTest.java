@@ -19,14 +19,8 @@ public final class HostPolicyTest {
         equal("http://192.168.1.2:5000/api/", config.localBaseUrl);
         equal("https://nas.example.com/", config.publicBaseUrl);
         equal("192.168.1.2", config.pingHost());
-        equal(config.localBaseUrl, HostPolicy.select(config, true, "Home", true));
-        equal(config.localBaseUrl, HostPolicy.select(config, true, "\"Home\"", true));
-        equal(config.publicBaseUrl, HostPolicy.select(config, true, "Home", false));
-        equal(config.publicBaseUrl, HostPolicy.select(config, true, "Cafe", true));
-        equal(config.publicBaseUrl, HostPolicy.select(config, false, "Home", true));
-        equal(config.publicBaseUrl, HostPolicy.select(config, true, "<unknown ssid>", true));
-        equal(config.publicBaseUrl, HostPolicy.select(config, true, "home", true));
-        equal(config.publicBaseUrl, HostPolicy.select(config, true, null, true));
+        equal(config.localBaseUrl, HostPolicy.selectOrdered(config, address -> true, () -> false));
+        equal(config.publicBaseUrl, HostPolicy.selectOrdered(config, address -> false, () -> false));
         equal("2001:db8::1", new HostConfig("家里的 Wi-Fi", "http://[2001:db8::1]:8080/", "https://example.com/").pingHost());
         invalid("", "http://192.168.1.2", "https://example.com");
         invalid("Home", "192.168.1.2:5000", "https://example.com");

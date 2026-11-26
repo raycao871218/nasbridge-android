@@ -3,11 +3,13 @@
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="vertical" android:background="@drawable/background">
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp" android:layout_marginTop="24dp" android:text="@string/brand"
+        android:drawableStart="@drawable/sparrow_small" android:drawablePadding="12dp" android:gravity="center_vertical"
+        android:layout_marginHorizontal="24dp" android:layout_marginTop="16dp" android:text="@string/brand"
         android:textColor="@color/text_secondary" android:textSize="12sp" android:letterSpacing="0.16" />
     <TextView android:id="@+id/page_title" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginHorizontal="24dp" android:layout_marginTop="16dp" android:textSize="30sp"
         android:textColor="@color/text_primary" android:fontFamily="sans-serif-medium" />
+    <View android:layout_width="64dp" android:layout_height="5dp" android:layout_marginStart="24dp" android:layout_marginTop="8dp" android:layout_marginBottom="4dp" android:background="@drawable/crayon_underline" android:importantForAccessibility="no" />
     <FrameLayout android:id="@+id/tab_content" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
         <include layout="@layout/panel_overview" />
         <ScrollView android:id="@+id/services_panel" android:layout_width="match_parent" android:layout_height="match_parent">
@@ -44,17 +46,6 @@
                     <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
                         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/module_articles_title" android:textColor="@color/text_primary" android:textSize="17sp" />
                         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/module_articles_description" android:textColor="@color/text_secondary" android:textSize="12sp" />
-                    </LinearLayout>
-                    <TextView android:layout_width="24dp" android:layout_height="wrap_content" android:text="@string/module_chevron" android:textColor="@color/text_secondary" android:textSize="24sp" android:gravity="center" android:importantForAccessibility="no" />
-                </LinearLayout>
-                <LinearLayout android:id="@+id/module_sms" android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:minHeight="88dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="16dp"
-                    android:layout_marginTop="12dp" android:background="@drawable/card" android:clickable="true" android:focusable="true"
-                    android:foreground="?android:attr/selectableItemBackground">
-                    <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/ic_tab_notifications" android:importantForAccessibility="no" />
-                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
-                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/module_sms_title" android:textColor="@color/text_primary" android:textSize="17sp" />
-                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/module_sms_description" android:textColor="@color/text_secondary" android:textSize="12sp" />
                     </LinearLayout>
                     <TextView android:layout_width="24dp" android:layout_height="wrap_content" android:text="@string/module_chevron" android:textColor="@color/text_secondary" android:textSize="24sp" android:gravity="center" android:importantForAccessibility="no" />
                 </LinearLayout>
@@ -102,32 +93,63 @@
                     </LinearLayout>
                     <TextView android:layout_width="24dp" android:layout_height="wrap_content" android:text="@string/module_chevron" android:textColor="@color/text_secondary" android:textSize="24sp" android:gravity="center" android:importantForAccessibility="no" />
                 </LinearLayout>
+                <LinearLayout android:id="@+id/module_codex" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="88dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="16dp"
+                    android:layout_marginTop="12dp" android:background="@drawable/card" android:clickable="true" android:focusable="true"
+                    android:foreground="?android:attr/selectableItemBackground">
+                    <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/ic_tasks" android:importantForAccessibility="no" />
+                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/module_codex_title" android:textColor="@color/text_primary" android:textSize="17sp" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/module_codex_description" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="24dp" android:layout_height="wrap_content" android:text="@string/module_chevron" android:textColor="@color/text_secondary" android:textSize="24sp" android:gravity="center" android:importantForAccessibility="no" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/module_devices" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="88dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="16dp"
+                    android:layout_marginTop="12dp" android:background="@drawable/card" android:clickable="true" android:focusable="true"
+                    android:foreground="?android:attr/selectableItemBackground">
+                    <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/ic_network" android:importantForAccessibility="no" />
+                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="16dp">
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/module_devices_title" android:textColor="@color/text_primary" android:textSize="17sp" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/module_devices_description" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="24dp" android:layout_height="wrap_content" android:text="@string/module_chevron" android:textColor="@color/text_secondary" android:textSize="24sp" android:gravity="center" android:importantForAccessibility="no" />
+                </LinearLayout>
             </LinearLayout>
         </ScrollView>
         <ScrollView android:id="@+id/settings_panel" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
-                <Button android:id="@+id/network_settings_button" android:layout_width="match_parent" android:layout_height="72dp"
+                <Button android:minHeight="72dp" android:id="@+id/scan_setup_button" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:background="@drawable/card" android:text="@string/scan_setup" android:gravity="center_vertical|start"
+                    android:paddingHorizontal="20dp" android:textColor="@color/brand_mint" android:textSize="17sp" android:stateListAnimator="@null" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginVertical="12dp"
+                    android:text="@string/scan_setup_hint" android:textColor="@color/text_secondary" android:textSize="13sp" />
+                <Button android:minHeight="72dp" android:id="@+id/network_settings_button" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:background="@drawable/card" android:text="@string/network_settings_entry" android:gravity="center_vertical|start"
                     android:paddingHorizontal="20dp" android:textColor="@color/text_body" android:textSize="17sp" android:stateListAnimator="@null" />
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
                     android:text="@string/network_settings_description" android:textColor="@color/text_secondary" android:textSize="13sp" android:lineSpacingExtra="5dp" />
-                <Button android:id="@+id/presence_settings_button" android:layout_width="match_parent" android:layout_height="72dp"
+                <Button android:minHeight="72dp" android:id="@+id/presence_settings_button" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="24dp" android:background="@drawable/card" android:text="@string/presence_title"
                     android:gravity="center_vertical|start" android:paddingHorizontal="20dp" android:textColor="@color/text_body"
                     android:textSize="17sp" android:stateListAnimator="@null" />
             </LinearLayout>
         </ScrollView>
+        <include layout="@layout/panel_sms" />
     </FrameLayout>
     <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/border_subtle" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:orientation="horizontal"
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="72dp" android:orientation="horizontal"
         android:background="@color/surface_navigation" android:padding="8dp">
-        <Button android:id="@+id/tab_overview" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent"
+        <Button android:id="@+id/tab_overview" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="56dp"
             android:drawableTop="@drawable/ic_tab_overview" android:drawablePadding="3dp" android:gravity="center" android:padding="2dp" android:backgroundTint="@null" android:text="@string/tab_overview" android:textSize="12sp" android:stateListAnimator="@null" />
-        <Button android:id="@+id/tab_services" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent"
+        <Button android:id="@+id/tab_services" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="56dp"
             android:drawableTop="@drawable/ic_tab_services" android:drawablePadding="3dp" android:gravity="center" android:padding="2dp" android:backgroundTint="@null" android:text="@string/tab_services" android:textSize="12sp" android:stateListAnimator="@null" />
-        <Button android:id="@+id/tab_notifications" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent"
+        <FrameLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content">
+        <Button android:id="@+id/tab_notifications" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
             android:drawableTop="@drawable/ic_tab_notifications" android:drawablePadding="3dp" android:gravity="center" android:padding="2dp" android:backgroundTint="@null" android:text="@string/tab_notifications" android:textSize="12sp" android:stateListAnimator="@null" />
-        <Button android:id="@+id/tab_settings" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent"
+            <TextView android:id="@+id/sms_badge" android:layout_width="12dp" android:layout_height="12dp" android:layout_gravity="top|center_horizontal" android:layout_marginStart="18dp" android:layout_marginTop="2dp" android:background="@drawable/sms_badge" android:visibility="gone" android:importantForAccessibility="no" />
+        </FrameLayout>
+        <Button android:id="@+id/tab_settings" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="56dp"
             android:drawableTop="@drawable/ic_tab_settings" android:drawablePadding="3dp" android:gravity="center" android:padding="2dp" android:backgroundTint="@null" android:text="@string/tab_settings" android:textSize="12sp" android:stateListAnimator="@null" />
     </LinearLayout>
 </LinearLayout>

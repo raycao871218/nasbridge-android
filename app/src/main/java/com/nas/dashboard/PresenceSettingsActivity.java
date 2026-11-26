@@ -14,6 +14,7 @@ public final class PresenceSettingsActivity extends Activity {
     private PresenceSettings settings;
     private EditText url, entity, token;
     private Switch testMode;
+    private boolean pendingTest;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
@@ -21,11 +22,10 @@ public final class PresenceSettingsActivity extends Activity {
             GeofenceConfig config = GeofenceConfig.cached(PresenceSettingsActivity.this);
             android.content.SharedPreferences geo = GeofenceConfig.prefs(PresenceSettingsActivity.this);
             long synced = geo.getLong("synced_at", 0);
-            ((TextView) findViewById(R.id.geofence_status)).setText((config == null ? "尚未取得 NAS 围栏，启用同步后自动读取" : config.description())
+            ((TextView) findViewById(R.id.geofence_status)).setText((config == null ? "尚未取得围栏；启用后自动从 NAS 读取" : config.description())
                 + "\n" + geo.getString("sync_status", "等待同步")
                 + (synced == 0 ? "" : " · " + java.text.DateFormat.getDateTimeInstance().format(new java.util.Date(synced)))
                 + "\n" + geo.getString("last_check", "尚无定位记录"));
-            testMode.setEnabled(config == null || !config.enabled);
             ((TextView) findViewById(R.id.presence_status)).setText(enabled && !running
                 ? "后台未运行，暂时无法自动更新 HA。请检查后台权限后重新启用。\n上次记录：" + settings.currentStatus()
                 : settings.currentStatus());
@@ -50,12 +50,18 @@ public final class PresenceSettingsActivity extends Activity {
         entity = findViewById(R.id.ha_entity); token = findViewById(R.id.ha_token);
         testMode = findViewById(R.id.presence_test_mode);
         testMode.setChecked(settings.testMode());
+        testMode.setOnCheckedChangeListener((button, checked) -> {
+            settings.prefs.edit().putBoolean("test_mode", checked).apply();
+            PresenceService.modeChanged();
+            Toast.makeText(this, checked ? "测试模式：每 1 分钟定位" : "正常模式：每 30 分钟定位", Toast.LENGTH_SHORT).show();
+        });
         url.setText(settings.url()); entity.setText(settings.entity());
         if (settings.prefs.contains("token")) token.setHint("已保存令牌，留空保持原值");
         findViewById(R.id.presence_back).setOnClickListener(v -> finish());
         findViewById(R.id.presence_network_settings).setOnClickListener(v ->
             startActivity(new Intent(this, NetworkSettingsActivity.class)));
-        findViewById(R.id.presence_start).setOnClickListener(v -> saveAndStart());
+        findViewById(R.id.presence_start).setOnClickListener(v -> { pendingTest = false; saveAndStart(); });
+        findViewById(R.id.presence_test_now).setOnClickListener(v -> { pendingTest = true; saveAndStart(); });
         findViewById(R.id.geofence_refresh).setOnClickListener(v -> {
             if (!PresenceService.isRunning()) {
                 Toast.makeText(this, "请先启用同步，再读取 NAS 配置", Toast.LENGTH_SHORT).show(); return;
@@ -101,7 +107,10 @@ public final class PresenceSettingsActivity extends Activity {
     private void start() {
         try {
             settings.prefs.edit().putBoolean("enabled", true).apply();
-            PresenceService.start(this);
+            Intent intent = new Intent(this, PresenceService.class);
+            if (pendingTest) intent.setAction(PresenceService.TEST_NOW);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
+            pendingTest = false;
         } catch (RuntimeException e) {
             settings.prefs.edit().putBoolean("enabled", false).apply();
             settings.status("启动失败，请检查定位权限后重试");
